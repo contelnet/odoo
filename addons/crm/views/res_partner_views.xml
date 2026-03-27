@@ -62,9 +62,20 @@
 
                     <notebook>
                         <page string="Resumen">
+                            <!-- Imagen y nombre completo mejorados para nombres largos -->
+                            <div class="d-flex align-items-center mb-3" style="flex-wrap: wrap;">
+                                <field name="image_1920" widget="image" class="me-3 rounded" options="{'preview_image': 'avatar_128'}" style="width: 96px; height: 96px; object-fit: cover;"/>
+                                <div style="min-width: 0; max-width: 100%; flex: 1 1 0;">
+                                    <span style="font-size: 2rem; font-weight: bold; word-break: break-word; white-space: normal; display: block; max-width: 100%; overflow-wrap: anywhere;">
+                                        <field name="name" string="Nombre de cuenta" required="1" placeholder="Ej: DSI Soluciones Industriales" nolabel="1"/>
+                                    </span>
+                                    <div style="font-size: 1rem; color: #888; word-break: break-all;">
+                                        <field name="email" string="Correo electrónico" placeholder="nombre@empresa.com" nolabel="1"/>
+                                    </div>
+                                </div>
+                            </div>
                             <group string="INFORMACIÓN DE LA CUENTA" col="2">
                                 <group>
-                                    <field name="name" string="Nombre de cuenta" required="1" placeholder="Ej: DSI Soluciones Industriales"/>
                                     <field name="vat" string="CIF" placeholder="Ej: B12345678"/>
                                     <field name="trade_name" string="Marca Comercial" placeholder="Ej: DSI"/>
                                     <field name="phone" string="Teléfono" placeholder="Ej: 628787560"/>
