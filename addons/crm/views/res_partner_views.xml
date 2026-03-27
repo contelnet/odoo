@@ -1,0 +1,481 @@
+<?xml version="1.0"?>
+<odoo>
+
+    <record id="view_partner_form_crm_person" model="ir.ui.view">
+        <field name="name">res.partner.form.crm.person</field>
+        <field name="model">res.partner</field>
+        <field name="arch" type="xml">
+            <form string="Contacto" class="o_crm_partner_form o_crm_partner_contact_form">
+                <sheet>
+                    <field name="is_company" invisible="1"/>
+                    <field name="type" invisible="1"/>
+
+                    <group string="INFORMACIÓN DE CONTACTO" col="2">
+                        <group>
+                            <field name="first_name" required="1" placeholder="Ej: Juan"/>
+                            <field name="last_name" required="1" placeholder="Ej: Pérez"/>
+                            <field name="function" string="Puesto"/>
+                            <field name="parent_id" string="Cuenta" domain="[('is_company', '=', True), ('id', '!=', id)]" options="{'no_create': True}" placeholder="Selecciona una cuenta" context="{'form_view_ref': 'crm.view_partner_form_crm_company'}"/>
+                        </group>
+                        <group>
+                            <field name="email" string="Correo electrónico" placeholder="nombre@empresa.com"/>
+                            <field name="phone" string="Teléfono del trabajo" placeholder="Ej: 985123456"/>
+                            <field name="mobile" string="Teléfono móvil" placeholder="Ej: 612345678"/>
+                            <field name="preferred_contact_method"/>
+                            <field name="tz" string="Zona horaria principal"/>
+                        </group>
+                    </group>
+
+                    <group string="DIRECCIÓN" col="2">
+                        <group>
+                            <field name="available_location_ids" invisible="1"/>
+                            <field name="location_id" string="Ubicación" domain="[('id', 'in', available_location_ids)]" options="{'no_create': True}" placeholder="Selecciona una ubicación"/>
+                            <field name="street"
+                                string="Calle"/>
+                            <field name="street_number" string="Número"/>
+                            <field name="street2" string="Portal / Piso / Oficina"/>
+                            <field name="city" string="Ciudad"/>
+                            <field name="zip" string="Código postal"/>
+                            <field name="state_id" string="Estado o provincia" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="country_id" string="País o región" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="latitude" invisible="1"/>
+                            <field name="longitude" invisible="1"/>
+                            <button name="action_geocode_address" type="object" string="Actualizar" class="btn-secondary"/>
+                        </group>
+                        <group>
+                            <field name="contact_map_html" widget="html" nolabel="1" readonly="1"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_partner_form_crm_company" model="ir.ui.view">
+        <field name="name">res.partner.form.crm.company</field>
+        <field name="model">res.partner</field>
+        <field name="arch" type="xml">
+            <form string="Cuenta" class="o_crm_partner_form o_crm_partner_company_form">
+                <sheet>
+                    <field name="is_company" invisible="1"/>
+                    <field name="type" invisible="1"/>
+
+                    <notebook>
+                        <page string="Resumen">
+                            <group string="INFORMACIÓN DE LA CUENTA" col="2">
+                                <group>
+                                    <field name="name" string="Nombre de cuenta" required="1" placeholder="Ej: DSI Soluciones Industriales"/>
+                                    <field name="vat" string="CIF" placeholder="Ej: B12345678"/>
+                                    <field name="trade_name" string="Marca Comercial" placeholder="Ej: DSI"/>
+                                    <field name="phone" string="Teléfono" placeholder="Ej: 628787560"/>
+                                    <label for="website" string="Sitio web"/>
+                                    <div class="o_row">
+                                        <field name="website" nolabel="1"/>
+                                        <xpath expr="//button[@name='action_open_website']" position="replace">
+                                            <button name="action_open_website"
+                                                    type="object"
+                                                    icon="fa-globe"
+                                                    string=""
+                                                    class="btn btn-link"
+                                                    title="Ir al sitio web"
+                                                    invisible="not website"/>
+                                        </xpath>
+                                    </div>
+                                </group>
+                                <group>
+                                    <group col="2">
+                                        <label for="parent_id" string="Cuenta primaria"/>
+                                        <field name="parent_id" nolabel="1" domain="[('is_company', '=', True), ('id', '!=', id)]" placeholder="Cuenta primaria" context="{'form_view_ref': 'crm.view_partner_form_crm_company'}"/>
+
+                                        <label for="relationship_type_id" string="Tipo de relación"/>
+                                        <field name="relationship_type_id" nolabel="1"/>
+
+                                        <label for="main_contact_id" string="Contacto principal"/>
+                                        <field name="main_contact_id" nolabel="1" domain="[('parent_id', '=', id), ('type', '=', 'contact')]" placeholder="Contacto principal"/>
+
+                                        <label for="lopd_signed" string="LOPD firmada"/>
+                                        <field name="lopd_signed" nolabel="1"/>
+                                    </group>
+
+                                    <group invisible="not lopd_signed" col="2">
+                                        <label for="lopd_document_id" string="Archivo LOPD"/>
+                                        <field name="lopd_document_id"
+                                            nolabel="1"
+                                            required="lopd_signed"
+                                            options="{'no_create': True, 'no_create_edit': True}"
+                                            placeholder="Seleccionar archivo LOPD"/>
+                                        <span class="o_form_label">&#160;</span>
+                                        <button name="action_import_lopd_document"
+                                                type="object"
+                                                string="Adjuntar archivo LOPD"
+                                                class="btn-primary"/>
+                                    </group>
+                                </group>
+                            </group>
+
+                            <group string="DIRECCIÓN" col="2">
+                                <group>
+                                    <field name="available_location_ids" invisible="1"/>
+                                    <field name="location_id" string="Ubicación" domain="[('id', 'in', available_location_ids)]" options="{'no_create': True}" placeholder="Selecciona una ubicación"/>
+                                    <field name="street"
+                                        string="Calle"
+                                        placeholder="Ej: C/ Asturias"/>
+                                    <field name="street_number" string="Número" placeholder="Ej: 21"/>
+                                    <field name="street2" string="Portal / Piso / Oficina" placeholder="Ej: Entresuelo B"/>
+                                    <field name="city" string="Ciudad" placeholder="Ej: Oviedo"/>
+                                    <field name="zip" string="Código postal" placeholder="Ej: 33001"/>
+                                    <field name="state_id" string="Estado o provincia" options="{'no_open': True, 'no_create': True}"/>
+                                    <field name="country_id" string="País o región" options="{'no_open': True, 'no_create': True}"/>
+
+                                    <field name="latitude" invisible="1"/>
+                                    <field name="longitude" invisible="1"/>
+                                    <button name="action_geocode_address" type="object" string="Actualizar" class="btn-secondary"/>
+                                </group>
+
+                                <group string="MAPA">
+                                    <field name="map_html" widget="html" nolabel="1"/>
+                                </group>
+                            </group>
+
+                            <group string="CONTACTOS">
+                                <field name="child_ids" mode="list,form" domain="[('is_company', '=', False), ('type', '=', 'contact')]" context="{'default_parent_id': id, 'default_type': 'contact', 'default_is_company': False, 'form_view_ref': 'crm.view_partner_form_crm_person'}">
+                                    <list>
+                                        <field name="name" string="Nombre completo"/>
+                                        <field name="email" string="Correo electrónico"/>
+                                        <field name="phone" string="Teléfono"/>
+                                        <field name="mobile" string="Teléfono móvil"/>
+                                    </list>
+                                </field>
+                            </group>
+                        </page>
+
+                        <page string="Facturación">
+                            <group col="2">
+                                <group>
+                                    <field name="billing_prepago" widget="boolean_toggle"/>
+                                    <field name="billing_payment_method_id"/>
+                                    <field name="billing_invoice_email"/>
+                                    <field name="billing_sepa_signed" widget="boolean_toggle"/>
+                                </group>
+                                <group>
+                                    <field name="billing_incidents_cobro"/>
+                                    <field name="billing_default_pricelist"/>
+                                </group>
+                            </group>
+                            <group invisible="not billing_sepa_signed" col="2">
+                                <label for="billing_sepa_document_id" string="Documento SEPA"/>
+                                <field name="billing_sepa_document_id"
+                                    nolabel="1"
+                                    invisible="not billing_sepa_signed"
+                                    required="billing_sepa_signed"
+                                    options="{'no_create': True, 'no_create_edit': True}"/>
+                                <span class="o_form_label">&#160;</span>
+                                <button name="action_import_sepa_document"
+                                        type="object"
+                                        invisible="not billing_sepa_signed"
+                                        string="Adjuntar documento SEPA"
+                                        class="btn-primary"/>
+                            </group>
+                            <group string="Cuentas bancarias">
+                                <field name="bank_ids" nolabel="1" context="{'default_partner_id': id}">
+                                    <list editable="bottom">
+                                        <field name="acc_number" string="Cuenta"/>
+                                        <field name="bank_id" string="Banco"/>
+                                        <field name="currency_id" string="Divisa"/>
+                                        <field name="active" string="Activa"/>
+                                    </list>
+                                </field>
+                            </group>
+                        </page>
+
+                        <page string="Contratos">
+                            <group col="2">
+                                <group string="Contratos">
+                                    <field name="contract_it_bonus" widget="boolean_toggle"/>
+                                    <field name="contract_total_it_maintenance" widget="boolean_toggle"/>
+                                    <field name="contract_physical_centralita" widget="boolean_toggle"/>
+                                    <field name="contract_cloud_centralita" widget="boolean_toggle"/>
+                                    <field name="contract_vpn" widget="boolean_toggle"/>
+                                    <field name="contract_acronis" widget="boolean_toggle"/>
+                                    <field name="contract_antivirus" widget="boolean_toggle"/>
+                                    <field name="contract_office365" widget="boolean_toggle"/>
+                                    <field name="contract_extra_line_ids" nolabel="1" class="o_contract_extra_inline" context="{'default_partner_id': id}">
+                                        <kanban create="false" delete="false" class="o_contract_extra_inline_kanban">
+                                            <field name="option_id"/>
+                                            <field name="enabled"/>
+                                            <templates>
+                                                <t t-name="card">
+                                                    <div class="o_contract_extra_inline_row">
+                                                        <div class="o_contract_extra_inline_label">
+                                                            <field name="option_id"/>
+                                                        </div>
+                                                        <div class="o_contract_extra_inline_toggle">
+                                                            <field name="enabled" widget="boolean_toggle"/>
+                                                        </div>
+                                                    </div>
+                                                </t>
+                                            </templates>
+                                        </kanban>
+                                    </field>
+                                </group>
+                                <group string="Incidencias">
+                                    <field name="contract_incidents_cobro" widget="boolean_toggle"/>
+                                </group>
+                            </group>
+                        </page>
+
+                        <page string="Detalles">
+                            <group>
+                                <field name="notes"/>
+                            </group>
+                        </page>
+
+                        <page string="Activos y ubicaciones">
+                            <group>
+                                <field name="location_search" string="Buscar" placeholder="Buscar por ubicación o dirección..."/>
+                                <field name="location_show_active_only" string="Mostrar activos"/>
+                                <field name="location_detected_html" widget="html" nolabel="1" readonly="1"/>
+                            </group>
+                            <group string="Añadir ubicación nueva">
+                                <field name="location_ids" nolabel="1" context="{'default_partner_id': id}">
+                                    <list editable="bottom">
+                                        <field name="name" string="Nombre ubicación"/>
+                                        <field name="street" string="Calle"/>
+                                        <field name="street_number" string="Nº"/>
+                                        <field name="city" string="Ciudad"/>
+                                        <field name="zip" string="CP"/>
+                                        <field name="state_id" string="Provincia"/>
+                                        <field name="country_id" string="País"/>
+                                        <field name="active" string="Activa" widget="boolean_toggle"/>
+                                    </list>
+                                </field>
+                            </group>
+                        </page>
+                        <page string="Servicio"/>
+                        <page string="Archivo"/>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_partner_form_crm_unified" model="ir.ui.view">
+        <field name="name">res.partner.form.crm.unified</field>
+        <field name="model">res.partner</field>
+        <field name="arch" type="xml">
+            <form string="Partner" class="o_crm_partner_form o_crm_partner_unified_form">
+                <sheet>
+                    <field name="is_company" invisible="1"/>
+                    <group col="2">
+                        <group>
+                            <field name="name"/>
+                            <field name="parent_id" domain="[('is_company', '=', True), ('id', '!=', id)]" context="{'form_view_ref': 'crm.view_partner_form_crm_company'}"/>
+                            <field name="available_location_ids" invisible="1"/>
+                            <field name="location_id" string="Ubicación" domain="[('id', 'in', available_location_ids)]" options="{'no_create': True}"/>
+                            <field name="street"/>
+                            <field name="street_number"/>
+                            <field name="street2"/>
+                            <field name="city"/>
+                            <field name="zip"/>
+                            <field name="state_id"/>
+                            <field name="country_id"/>
+                        </group>
+                        <group>
+                            <field name="phone"/>
+                            <field name="mobile"/>
+                            <field name="email"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_partner_tree_crm" model="ir.ui.view">
+        <field name="name">res.partner.tree.crm</field>
+        <field name="model">res.partner</field>
+        <field name="arch" type="xml">
+            <list string="Partners">
+                <field name="name" string="Nombre"/>
+                <field name="phone" string="Teléfono" widget="phone" optional="show"/>
+                <field name="email" string="Email" widget="email" optional="show"/>
+                <field name="parent_id" string="Cuenta" optional="show"/>
+                <field name="user_id" string="Comercial" widget="many2one_avatar_user" optional="hide"/>
+                <field name="active" string="Estado" widget="boolean_toggle" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_partner_search_crm" model="ir.ui.view">
+        <field name="name">res.partner.search.crm</field>
+        <field name="model">res.partner</field>
+        <field name="arch" type="xml">
+            <search string="Buscar Partners">
+                <field name="name"/>
+                <field name="parent_id" string="Cuenta"/>
+                <filter string="Empresas" name="companies" domain="[('is_company', '=', True)]"/>
+                <filter string="Contactos" name="contacts" domain="[('is_company', '=', False), ('type', '=', 'contact')]"/>
+                <separator/>
+                <filter string="Activos" name="active" domain="[('active', '=', True)]"/>
+                <filter string="Inactivos" name="inactive" domain="[('active', '=', False)]"/>
+                <separator/>
+                <filter string="Mi equipo" name="my_team" domain="[('user_id', '=', uid)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_partner_customer_all_companies" model="ir.actions.act_window">
+        <field name="name">Cuentas</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,form,kanban</field>
+        <field name="domain">[('is_company', '=', True)]</field>
+        <field name="context">{
+            'default_is_company': True,
+            'search_default_active': 1
+        }</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_partner_tree_crm')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_partner_form_crm_company')}),
+            (0, 0, {'view_mode': 'kanban', 'view_id': ref('base.res_partner_kanban_view')})]"/>
+        <field name="search_view_id" ref="view_partner_search_crm"/>
+    </record>
+
+    <record id="contacts.action_contacts" model="ir.actions.act_window">
+        <field name="name">Cuentas</field>
+        <field name="path">contacts</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="search_view_id" ref="view_partner_search_crm"/>
+        <field name="domain">[('is_company', '=', True)]</field>
+        <field name="context">{
+            'default_is_company': True,
+            'search_default_active': 1
+        }</field>
+    </record>
+
+    <record id="contacts.menu_contacts" model="ir.ui.menu">
+        <field name="name">Clientes</field>
+        <field name="action" ref="contacts.action_contacts"/>
+    </record>
+
+    <record id="contacts.action_contacts_view_kanban" model="ir.actions.act_window.view">
+        <field name="sequence" eval="0"/>
+        <field name="view_mode">kanban</field>
+        <field name="view_id" ref="base.res_partner_kanban_view"/>
+        <field name="act_window_id" ref="contacts.action_contacts"/>
+    </record>
+
+    <record id="contacts.action_contacts_view_tree" model="ir.actions.act_window.view">
+        <field name="sequence" eval="1"/>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_partner_tree_crm"/>
+        <field name="act_window_id" ref="contacts.action_contacts"/>
+    </record>
+
+    <record id="contacts.action_contacts_view_form" model="ir.actions.act_window.view">
+        <field name="sequence" eval="2"/>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_partner_form_crm_company"/>
+        <field name="act_window_id" ref="contacts.action_contacts"/>
+    </record>
+
+    <record id="action_partner_customer_all_persons" model="ir.actions.act_window">
+        <field name="name">Contactos</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('is_company', '=', False), ('type', '=', 'contact')]</field>
+        <field name="context">{
+            'default_is_company': False,
+            'default_type': 'contact',
+            'search_default_active': 1
+        }</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_partner_tree_crm')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_partner_form_crm_person')})]"/>
+        <field name="search_view_id" ref="view_partner_search_crm"/>
+    </record>
+
+    <record id="contacts.res_partner_menu_contacts" model="ir.ui.menu">
+        <field name="name">Cuentas</field>
+        <field name="parent_id" ref="contacts.menu_contacts"/>
+        <field name="action" ref="contacts.action_contacts"/>
+    </record>
+
+    <menuitem id="menu_crm_all_contacts"
+        name="Contactos"
+        parent="contacts.menu_contacts"
+        action="action_partner_customer_all_persons"
+        sequence="3"/>
+
+    <record id="view_crm_contract_option_tree" model="ir.ui.view">
+        <field name="name">crm.contract.option.tree</field>
+        <field name="model">crm.contract.option</field>
+        <field name="arch" type="xml">
+            <list string="Contratos" editable="bottom">
+                <field name="name"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_crm_contract_option_form" model="ir.ui.view">
+        <field name="name">crm.contract.option.form</field>
+        <field name="model">crm.contract.option</field>
+        <field name="arch" type="xml">
+            <form string="Contrato">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_crm_contract_options" model="ir.actions.act_window">
+        <field name="name">Contratos</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">crm.contract.option</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_crm_contract_option_tree')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_crm_contract_option_form')})]"/>
+        <field name="context">{'default_active': True}</field>
+    </record>
+
+    <menuitem id="menu_crm_contract_options"
+        name="Contratos"
+        parent="contacts.menu_contacts"
+        action="action_crm_contract_options"
+        sequence="4"/>
+
+    <record id="view_attachment_form_lopd_import" model="ir.ui.view">
+        <field name="name">ir.attachment.form.lopd.import</field>
+        <field name="model">ir.attachment</field>
+        <field name="arch" type="xml">
+            <form string="Importar Documento LOPD">
+                <sheet>
+                    <group>
+                        <field name="name" string="Nombre"/>
+                        <field name="type" string="Tipo"/>
+                        <field name="datas" string="Contenido del archivo (base64)" filename="name"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button string="Guardar" special="save" class="btn-primary"/>
+                    <button string="Cancelar" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_attachment_lopd_import" model="ir.actions.act_window">
+        <field name="name">Importar Documento LOPD</field>
+        <field name="res_model">ir.attachment</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_attachment_form_lopd_import"/>
+        <field name="target">new</field>
+    </record>
+
+</odoo>
