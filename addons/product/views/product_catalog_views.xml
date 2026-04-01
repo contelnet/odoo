@@ -1,0 +1,394 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<odoo>
+    <record id="product_view_template_catalog_common_inherit" model="ir.ui.view">
+        <field name="name">product.template.catalog.common.form.inherit</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_form_view" />
+        <field name="arch" type="xml">
+            <div name="options" position="inside">
+                <span class="d-inline-flex" invisible="type == 'combo'">
+                    <field name="ticket_active" />
+                    <label for="ticket_active" string="Tickets" />
+                </span>
+            </div>
+        </field>
+    </record>
+
+    <record id="product_view_template_catalog_form" model="ir.ui.view">
+        <field name="name">product.template.catalog.form</field>
+        <field name="model">product.template</field>
+        <field name="arch" type="xml">
+            <form string="Producto" class="product-catalog-form">
+                <header>
+                    <button
+                        name="action_save_product_record"
+                        type="object"
+                        string="Guardar"
+                        class="btn product-catalog-save-btn"
+                        icon="fa-save"
+                        style="background: linear-gradient(135deg, #15803d 0%, #22c55e 100%) !important; background-color: #16a34a !important; background-image: none !important; border: 1px solid rgba(255, 255, 255, 0.18) !important; border-radius: 999px !important; color: #ffffff !important; box-shadow: 0 12px 24px rgba(21, 128, 61, 0.2) !important; font-weight: 600 !important; min-height: 2.5rem; min-width: 7.5rem; padding: 0.6rem 1.2rem;"
+                    />
+                </header>
+                <sheet name="product_form">
+                    <field name="active" invisible="1" />
+                    <field name="company_id" invisible="1" />
+                    <field name="currency_id" invisible="1" />
+                    <field name="cost_currency_id" invisible="1" />
+                    <field name="sales_count" invisible="1" />
+                    <field name="purchased_product_qty" invisible="1" />
+                    <field name="uom_name" invisible="1" />
+                    <field name="ticket_active" invisible="1" />
+                    <field name="is_storable" invisible="1" />
+                    <field name="tracking" invisible="1" />
+                    <field name="sale_ok" invisible="1" />
+                    <field name="purchase_ok" invisible="1" />
+                    <field name="type" invisible="1" />
+                    <widget name="web_ribbon" title="Archivado" bg_color="text-bg-danger" invisible="active" />
+
+                    <div class="oe_button_box" name="button_box">
+                        <button
+                            class="oe_stat_button"
+                            name="action_view_sales"
+                            type="object"
+                            icon="fa-signal"
+                            help="Ventas del producto en los ultimos 365 dias"
+                            groups="sales_team.group_sale_salesman"
+                            invisible="not sale_ok"
+                        >
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value d-flex gap-1">
+                                    <field name="sales_count" widget="statinfo" nolabel="1" class="oe_inline" />
+                                    <field name="uom_name" class="oe_inline" groups="uom.group_uom" />
+                                </span>
+                                <span class="o_stat_text">Vendido</span>
+                            </div>
+                        </button>
+                        <button
+                            class="oe_stat_button"
+                            name="action_view_po"
+                            type="object"
+                            icon="fa-credit-card"
+                            help="Compras del producto en los ultimos 365 dias"
+                            groups="purchase.group_purchase_user"
+                            invisible="not purchase_ok"
+                        >
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value d-flex gap-1">
+                                    <field name="purchased_product_qty" widget="statinfo" nolabel="1" class="oe_inline" />
+                                    <field name="uom_name" class="oe_inline" groups="uom.group_uom" />
+                                </span>
+                                <span class="o_stat_text">Comprado</span>
+                            </div>
+                        </button>
+                    </div>
+
+                    <field
+                        name="image_1920"
+                        widget="image"
+                        class="oe_avatar"
+                        options="{'convert_to_webp': True, 'preview_image': 'image_128'}"
+                    />
+
+                    <div class="oe_title">
+                        <label for="name" string="Nombre" />
+                        <h1>
+                            <field name="name" placeholder="Nombre del producto" />
+                        </h1>
+                        <div class="mt-3">
+                            <label for="default_code" string="Part Number" class="d-block" />
+                            <field name="default_code" placeholder="Internal reference / part number" />
+                        </div>
+                    </div>
+
+                    <group>
+                        <group string="Datos del producto">
+                            <field name="product_notes" placeholder="Descripcion opcional" />
+                            <field name="product_mode" widget="radio" />
+                            <field
+                                name="piece_input"
+                                placeholder="Escribe una pieza y guarda para anadirla"
+                                invisible="product_mode != 'pieces'"
+                            />
+                            <field name="has_serial_number" />
+                            <field
+                                name="serial_number_input"
+                                placeholder="Introduce el numero de serie"
+                                invisible="not has_serial_number"
+                            />
+                            <field name="stock_qty" />
+                            <field name="stock_location_id" options="{'no_create': True, 'no_open': True}" />
+                        </group>
+                        <group string="Precios y proveedor">
+                            <field
+                                name="standard_price"
+                                string="Precio de compra"
+                                widget="monetary"
+                                options="{'currency_field': 'cost_currency_id', 'field_digits': True}"
+                                groups="base.group_user"
+                            />
+                            <field
+                                name="purchase_total"
+                                readonly="1"
+                                widget="monetary"
+                                options="{'currency_field': 'cost_currency_id', 'field_digits': True}"
+                                groups="base.group_user"
+                            />
+                            <field
+                                name="purchase_tax_amount"
+                                readonly="1"
+                                widget="monetary"
+                                options="{'currency_field': 'cost_currency_id', 'field_digits': True}"
+                                groups="base.group_user"
+                            />
+                            <field
+                                name="supplier_partner_id"
+                                placeholder="Selecciona una cuenta de proveedor"
+                                options="{'no_create': False}"
+                                groups="base.group_user"
+                            />
+                            <field
+                                name="supplier_reference"
+                                string="Enlace o referencia externa"
+                                widget="text"
+                                placeholder="Enlace, pedido web o cualquier referencia externa"
+                                groups="base.group_user"
+                            />
+                            <field
+                                name="list_price"
+                                string="Precio de venta"
+                                widget="monetary"
+                                options="{'currency_field': 'currency_id', 'field_digits': True}"
+                            />
+                            <field
+                                name="sale_total"
+                                readonly="1"
+                                widget="monetary"
+                                options="{'currency_field': 'currency_id', 'field_digits': True}"
+                            />
+                            <field
+                                name="sale_tax_amount"
+                                readonly="1"
+                                widget="monetary"
+                                options="{'currency_field': 'currency_id', 'field_digits': True}"
+                            />
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Piezas" invisible="product_mode != 'pieces'">
+                            <group>
+                                <field name="piece_ids" nolabel="1">
+                                    <list string="Piezas" delete="1">
+                                        <field name="name" string="Pieza" />
+                                        <field name="serial_number" string="Numero de serie" optional="show" />
+                                        <field
+                                            name="price_unit"
+                                            string="Precio pieza"
+                                            widget="monetary"
+                                            options="{'currency_field': 'currency_id', 'field_digits': True}"
+                                        />
+                                        <field name="create_date" string="Fecha de alta" readonly="1" optional="show" />
+                                    </list>
+                                </field>
+                            </group>
+                        </page>
+                        <page string="Numeros de serie">
+                            <group>
+                                <field name="serial_number_ids" nolabel="1">
+                                    <list string="Numeros de serie" delete="1">
+                                        <field name="name" string="Numero de serie" />
+                                        <field name="create_date" string="Fecha de alta" readonly="1" optional="show" />
+                                    </list>
+                                </field>
+                            </group>
+                        </page>
+                        <page string="Compras" groups="base.group_user">
+                            <group>
+                                <field name="purchase_history_html" widget="html" nolabel="1" />
+                            </group>
+                        </page>
+                        <page string="Ventas">
+                            <group>
+                                <field name="sale_history_html" widget="html" nolabel="1" />
+                            </group>
+                        </page>
+                        <page string="Impuestos">
+                            <group>
+                                <group string="Compra" groups="base.group_user">
+                                    <field name="supplier_taxes_id" widget="many2many_tags" options="{'no_create': True}" />
+                                    <field
+                                        name="purchase_tax_amount"
+                                        readonly="1"
+                                        widget="monetary"
+                                        options="{'currency_field': 'cost_currency_id', 'field_digits': True}"
+                                    />
+                                    <field
+                                        name="purchase_total"
+                                        readonly="1"
+                                        widget="monetary"
+                                        options="{'currency_field': 'cost_currency_id', 'field_digits': True}"
+                                    />
+                                </group>
+                                <group string="Venta">
+                                    <field name="taxes_id" widget="many2many_tags" options="{'no_create': True}" />
+                                    <field
+                                        name="sale_tax_amount"
+                                        readonly="1"
+                                        widget="monetary"
+                                        options="{'currency_field': 'currency_id', 'field_digits': True}"
+                                    />
+                                    <field
+                                        name="sale_total"
+                                        readonly="1"
+                                        widget="monetary"
+                                        options="{'currency_field': 'currency_id', 'field_digits': True}"
+                                    />
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter />
+            </form>
+        </field>
+    </record>
+
+    <record id="product_view_template_catalog_list" model="ir.ui.view">
+        <field name="name">product.template.catalog.list</field>
+        <field name="model">product.template</field>
+        <field name="arch" type="xml">
+            <list string="Productos" default_order="name asc">
+                <field name="default_code" optional="show" />
+                <field name="name" />
+                <field name="ticket_active" optional="show" />
+                <field name="product_mode" optional="show" />
+                <field name="supplier_partner_id" optional="hide" />
+                <field name="supplier_reference" optional="hide" />
+                <field name="stock_location_id" optional="show" />
+                <field name="stock_qty" optional="show" />
+                <field
+                    name="standard_price"
+                    string="Precio de compra"
+                    widget="monetary"
+                    options="{'currency_field': 'cost_currency_id', 'field_digits': True}"
+                    groups="base.group_user"
+                    optional="show"
+                />
+                <field
+                    name="list_price"
+                    string="Precio de venta"
+                    widget="monetary"
+                    options="{'currency_field': 'currency_id', 'field_digits': True}"
+                    optional="show"
+                />
+            </list>
+        </field>
+    </record>
+
+    <record id="product_template_search_view_catalog" model="ir.ui.view">
+        <field name="name">product.template.search.catalog</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_search_view" />
+        <field name="arch" type="xml">
+            <search>
+                <filter string="Disponible para tickets" name="ticket_active_filter" domain="[('ticket_active', '=', True)]" />
+            </search>
+        </field>
+    </record>
+
+    <record id="product_template_action_catalog" model="ir.actions.act_window">
+        <field name="name">Productos</field>
+        <field name="res_model">product.template</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="view_mode">list,form,activity</field>
+        <field name="search_view_id" ref="product_template_search_view_catalog" />
+        <field name="context">{'default_ticket_active': 1, 'default_sale_ok': 1, 'default_purchase_ok': 1, 'default_type': 'consu', 'default_is_storable': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Crea un nuevo producto
+            </p>
+            <p>
+                Utiliza esta pantalla rapida para registrar productos con su proveedor,
+                precios, stock real por ubicacion, configuracion fiscal e historicos recientes.
+            </p>
+            <p>
+                Las compras se registran desde Compras y las ventas desde Ventas; desde la ficha del producto puedes abrir ambos historicos directamente.
+            </p>
+        </field>
+    </record>
+
+    <record id="product_template_action_catalog_list_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="10" />
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="product_view_template_catalog_list" />
+        <field name="act_window_id" ref="product_template_action_catalog" />
+    </record>
+
+    <record id="product_template_action_catalog_form_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="20" />
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="product_view_template_catalog_form" />
+        <field name="act_window_id" ref="product_template_action_catalog" />
+    </record>
+
+    <record id="stock.product_template_action_product" model="ir.actions.act_window">
+        <field name="view_mode">list,form,kanban</field>
+    </record>
+
+    <record id="sale.product_template_action" model="ir.actions.act_window">
+        <field name="view_mode">list,form,kanban,activity</field>
+    </record>
+
+    <record id="purchase.product_normal_action_puchased" model="ir.actions.act_window">
+        <field name="view_mode">list,form,kanban,activity</field>
+    </record>
+
+    <record id="product_template_action_inventory_list_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="10" />
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="product_view_template_catalog_list" />
+        <field name="act_window_id" ref="stock.product_template_action_product" />
+    </record>
+
+    <record id="product_template_action_inventory_form_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="20" />
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="product_view_template_catalog_form" />
+        <field name="act_window_id" ref="stock.product_template_action_product" />
+    </record>
+
+    <record id="product_template_action_sales_list_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="10" />
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="product_view_template_catalog_list" />
+        <field name="act_window_id" ref="sale.product_template_action" />
+    </record>
+
+    <record id="product_template_action_sales_form_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="20" />
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="product_view_template_catalog_form" />
+        <field name="act_window_id" ref="sale.product_template_action" />
+    </record>
+
+    <record id="product_template_action_purchase_list_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="10" />
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="product_view_template_catalog_list" />
+        <field name="act_window_id" ref="purchase.product_normal_action_puchased" />
+    </record>
+
+    <record id="product_template_action_purchase_form_view" model="ir.actions.act_window.view">
+        <field name="sequence" eval="20" />
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="product_view_template_catalog_form" />
+        <field name="act_window_id" ref="purchase.product_normal_action_puchased" />
+    </record>
+
+    <menuitem
+        id="menu_product_catalog_custom"
+        name="Productos"
+        parent="product.menu_catalog"
+        action="product_template_action_catalog"
+        sequence="50"/>
+</odoo>

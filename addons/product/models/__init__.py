@@ -18,8 +18,11 @@ from . import product_combo
 from . import product_combo_item
 from . import product_document
 from . import product_packaging
+from . import product_piece
 from . import product_pricelist
 from . import product_pricelist_item
+from . import product_catalog
+from . import product_serial_number
 from . import product_supplierinfo
 from . import product_tag
 from . import product_template_attribute_line

@@ -47,6 +47,7 @@ Print product labels with barcode.
         'views/product_supplierinfo_views.xml',
         'views/product_template_attribute_line_views.xml',
         'views/product_template_views.xml',
+        'views/product_catalog_views.xml',
         'views/res_country_group_views.xml',
         'views/res_partner_views.xml',
 

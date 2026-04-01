@@ -1,0 +1,512 @@
+from markupsafe import escape
+
+from odoo import _, api, fields, models
+from odoo.exceptions import ValidationError
+from odoo.tools.float_utils import float_compare, float_is_zero
+
+
+class Product(models.Model):
+    _inherit = "product.template"
+
+    def init(self):
+        """Autocura de esquema para instalaciones donde el upgrade de módulo quedó a medias.
+
+        Evita errores `UndefinedColumn` al cargar `product.template`/`product.product`
+        cuando existen campos nuevos en código pero aún no en la tabla SQL.
+        """
+        self.env.cr.execute(
+            """
+            ALTER TABLE product_template
+                ADD COLUMN IF NOT EXISTS ticket_active boolean,
+                ADD COLUMN IF NOT EXISTS product_mode varchar,
+                ADD COLUMN IF NOT EXISTS product_notes text,
+                ADD COLUMN IF NOT EXISTS piece_input varchar,
+                ADD COLUMN IF NOT EXISTS serial_number_input varchar,
+                ADD COLUMN IF NOT EXISTS supplier_partner_id integer,
+                ADD COLUMN IF NOT EXISTS supplier_reference text,
+                ADD COLUMN IF NOT EXISTS stock_location_id integer
+            """
+        )
+        # Valores por defecto para campos requeridos introducidos por esta personalización.
+        self.env.cr.execute(
+            """
+            UPDATE product_template
+               SET ticket_active = TRUE
+             WHERE ticket_active IS NULL
+            """
+        )
+        self.env.cr.execute(
+            """
+            UPDATE product_template
+               SET product_mode = 'pieces'
+             WHERE product_mode IS NULL
+            """
+        )
+
+    ticket_active = fields.Boolean(
+        "Disponible para tickets", default=True, required=True
+    )
+    product_mode = fields.Selection(
+        selection=[("single", "Producto unico"), ("pieces", "Por piezas")],
+        string="Tipo de producto",
+        default="pieces",
+        required=True,
+    )
+    product_notes = fields.Text(string="Descripcion")
+    has_serial_number = fields.Boolean(
+        string="Tiene numero de serie",
+        compute="_compute_has_serial_number",
+        inverse="_inverse_has_serial_number",
+    )
+    piece_input = fields.Char(string="Anadir pieza")
+    piece_ids = fields.One2many(
+        comodel_name="product.template.piece",
+        inverse_name="product_tmpl_id",
+        string="Piezas",
+    )
+    piece_total_price = fields.Monetary(
+        string="Total piezas",
+        currency_field="cost_currency_id",
+        compute="_compute_piece_total_price",
+    )
+    serial_number_input = fields.Char(
+        string="Numero de serie",
+    )
+    serial_number_ids = fields.One2many(
+        comodel_name="product.template.serial.number",
+        inverse_name="product_tmpl_id",
+        string="Numeros de serie",
+    )
+    serial_number_count = fields.Integer(
+        string="N. series",
+        compute="_compute_serial_number_count",
+    )
+    supplier_partner_id = fields.Many2one(
+        comodel_name="res.partner",
+        string="Proveedor",
+        domain=[("is_company", "=", True)],
+    )
+    supplier_reference = fields.Text(
+        string="Referencia externa proveedor",
+    )
+    stock_qty = fields.Float(
+        string="Stock",
+        compute="_compute_stock_qty",
+        inverse="_inverse_stock_qty",
+        digits="Product Unit of Measure",
+    )
+    stock_location_id = fields.Many2one(
+        comodel_name="stock.location",
+        string="Ubicacion",
+        domain="[('usage', '=', 'internal'), '|', ('company_id', '=', False), ('company_id', '=', company_id)]",
+        default=lambda self: self._default_stock_location_id(),
+        check_company=True,
+    )
+    purchase_tax_amount = fields.Monetary(
+        string="Impuesto de compra",
+        currency_field="cost_currency_id",
+        compute="_compute_tax_amounts",
+    )
+    purchase_total = fields.Monetary(
+        string="Costo con impuesto",
+        currency_field="cost_currency_id",
+        compute="_compute_tax_amounts",
+    )
+    sale_tax_amount = fields.Monetary(
+        string="Impuesto de venta",
+        currency_field="currency_id",
+        compute="_compute_tax_amounts",
+    )
+    sale_total = fields.Monetary(
+        string="Precio con impuesto",
+        currency_field="currency_id",
+        compute="_compute_tax_amounts",
+    )
+    purchase_history_html = fields.Html(
+        string="Historial de compras",
+        compute="_compute_histories",
+        sanitize=False,
+    )
+    sale_history_html = fields.Html(
+        string="Historial de ventas",
+        compute="_compute_histories",
+        sanitize=False,
+    )
+
+    @api.model
+    def _default_stock_location_id(self):
+        warehouse = self.env["stock.warehouse"].search(
+            [("company_id", "=", self.env.company.id)], limit=1
+        )
+        if warehouse:
+            return warehouse.lot_stock_id
+        return self.env["stock.location"].search(
+            [
+                ("usage", "=", "internal"),
+                "|",
+                ("company_id", "=", False),
+                ("company_id", "=", self.env.company.id),
+            ],
+            limit=1,
+        )
+
+    def _get_stock_location(self):
+        self.ensure_one()
+        return self.stock_location_id or self._default_stock_location_id()
+
+    def _get_single_variant(self):
+        self.ensure_one()
+        if self.product_variant_count > 1:
+            raise ValidationError(
+                _(
+                    "Este formulario rapido solo admite productos sin variantes para ajustar stock."
+                )
+            )
+        return self.product_variant_id
+
+    @api.depends("tracking")
+    def _compute_has_serial_number(self):
+        for product in self:
+            product.has_serial_number = product.tracking == "serial"
+
+    @api.depends("serial_number_ids")
+    def _compute_serial_number_count(self):
+        for product in self:
+            product.serial_number_count = len(product.serial_number_ids)
+
+    @api.depends("piece_ids.price_unit")
+    def _compute_piece_total_price(self):
+        for product in self:
+            product.piece_total_price = sum(product.piece_ids.mapped("price_unit"))
+
+    @api.onchange("product_mode", "piece_ids", "piece_ids.price_unit")
+    def _onchange_piece_prices(self):
+        self._apply_piece_total_price()
+
+    def _inverse_has_serial_number(self):
+        for product in self:
+            if product.has_serial_number:
+                product.is_storable = True
+                product.tracking = "serial"
+            elif product.tracking == "serial":
+                product.tracking = "none"
+                product.serial_number_input = False
+
+    def _compute_stock_qty(self):
+        quant_model = self.env["stock.quant"].sudo()
+        for product in self:
+            location = product._get_stock_location()
+            if not product.id or not location or not product.is_storable:
+                product.stock_qty = 0.0
+                continue
+            variant = product.product_variant_id
+            product.stock_qty = quant_model._get_available_quantity(
+                variant, location, strict=True
+            )
+
+    def _inverse_stock_qty(self):
+        quant_model = self.env["stock.quant"].sudo()
+        for product in self:
+            location = product._get_stock_location()
+            if not location:
+                continue
+            variant = product._get_single_variant()
+            target_qty = product.stock_qty
+            if product.product_mode == "single" and float_compare(
+                target_qty,
+                1.0,
+                precision_rounding=variant.uom_id.rounding,
+            ) > 0:
+                raise ValidationError(
+                    _(
+                        "Los productos unicos solo admiten una unidad en stock."
+                    )
+                )
+            if product.tracking == "serial" and float_compare(
+                target_qty,
+                round(target_qty),
+                precision_rounding=variant.uom_id.rounding,
+            ):
+                raise ValidationError(
+                    _(
+                        "Los productos con numero de serie solo admiten cantidades enteras."
+                    )
+                )
+            product.is_storable = True
+            current_qty = quant_model._get_available_quantity(
+                variant, location, strict=True
+            )
+            delta_qty = target_qty - current_qty
+            if float_is_zero(delta_qty, precision_rounding=variant.uom_id.rounding):
+                continue
+            quant_model._update_available_quantity(variant, location, quantity=delta_qty)
+
+    @api.depends("standard_price", "supplier_taxes_id", "list_price", "taxes_id", "company_id")
+    def _compute_tax_amounts(self):
+        for product in self:
+            purchase_taxes_res = product._compute_price_taxes(
+                product.standard_price,
+                product.supplier_taxes_id,
+                product.cost_currency_id,
+            )
+            sale_taxes_res = product._compute_price_taxes(
+                product.list_price,
+                product.taxes_id,
+                product.currency_id,
+            )
+            product.purchase_tax_amount = purchase_taxes_res["tax_amount"]
+            product.purchase_total = purchase_taxes_res["total"]
+            product.sale_tax_amount = sale_taxes_res["tax_amount"]
+            product.sale_total = sale_taxes_res["total"]
+
+    def _compute_histories(self):
+        purchase_lines_model = self.env["purchase.order.line"].sudo()
+        sale_lines_model = self.env["sale.order.line"].sudo()
+        for product in self:
+            if not product.id:
+                product.purchase_history_html = product._empty_history_html("Sin compras registradas.")
+                product.sale_history_html = product._empty_history_html("Sin ventas registradas.")
+                continue
+            purchase_lines = purchase_lines_model.search(
+                [
+                    ("product_id.product_tmpl_id", "=", product.id),
+                    ("display_type", "=", False),
+                    ("state", "in", ("purchase", "done")),
+                ],
+                order="id desc",
+                limit=80,
+            )
+            purchase_lines = purchase_lines.sorted(
+                key=lambda line: (line.date_order or fields.Datetime.from_string("1970-01-01 00:00:00"), line.id),
+                reverse=True,
+            )[:10]
+            sale_lines = sale_lines_model.search(
+                [
+                    ("product_id.product_tmpl_id", "=", product.id),
+                    ("display_type", "=", False),
+                    ("state", "in", ("sale", "done")),
+                ],
+                order="id desc",
+                limit=80,
+            )
+            sale_lines = sale_lines.sorted(
+                key=lambda line: (line.order_id.date_order or fields.Datetime.from_string("1970-01-01 00:00:00"), line.id),
+                reverse=True,
+            )[:10]
+            product.purchase_history_html = product._format_history_html(
+                purchase_lines, "Sin compras registradas."
+            )
+            product.sale_history_html = product._format_history_html(
+                sale_lines, "Sin ventas registradas."
+            )
+
+    def action_save_product_record(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Producto guardado"),
+                "message": _("Los cambios del producto se han guardado correctamente."),
+                "type": "success",
+                "sticky": False,
+            },
+        }
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if any(key in vals for key in ("stock_qty", "stock_location_id", "has_serial_number")):
+                vals.setdefault("is_storable", True)
+            if vals.get("stock_location_id") and not vals.get("company_id"):
+                location = self.env["stock.location"].browse(vals["stock_location_id"])
+                vals["company_id"] = location.company_id.id or self.env.company.id
+        products = super().create(vals_list)
+        products._sync_pending_pieces()
+        products._apply_piece_total_price()
+        products._sync_pending_serial_numbers()
+        return products
+
+    def write(self, vals):
+        if any(key in vals for key in ("stock_qty", "stock_location_id", "has_serial_number")):
+            vals.setdefault("is_storable", True)
+        if vals.get("stock_location_id") and not vals.get("company_id"):
+            location = self.env["stock.location"].browse(vals["stock_location_id"])
+            vals["company_id"] = location.company_id.id or self.env.company.id
+        result = super().write(vals)
+        if "piece_input" in vals or "product_mode" in vals:
+            self._sync_pending_pieces()
+        if "piece_ids" in vals or "piece_input" in vals or "product_mode" in vals:
+            self._apply_piece_total_price()
+        if "serial_number_input" in vals or "has_serial_number" in vals:
+            self._sync_pending_serial_numbers()
+        return result
+
+    def _sync_pending_pieces(self):
+        piece_model = self.env["product.template.piece"]
+        for product in self:
+            if product.product_mode != "pieces" or not product.piece_input:
+                continue
+            piece_values = product._parse_piece_values(product.piece_input)
+            piece_model.create(
+                [{"product_tmpl_id": product.id, "name": piece_value} for piece_value in piece_values]
+            )
+            super(Product, product).write({"piece_input": False})
+
+    def _apply_piece_total_price(self):
+        for product in self:
+            if product.product_mode != "pieces":
+                continue
+            piece_prices = product.piece_ids.mapped("price_unit")
+            if not piece_prices or not any(price not in (False, None, 0.0) for price in piece_prices):
+                continue
+            product.standard_price = product.piece_total_price
+
+    @api.constrains("product_mode", "stock_qty")
+    def _check_product_mode_qty(self):
+        for product in self:
+            if (
+                product.product_mode == "single"
+                and float_compare(
+                    product.stock_qty,
+                    1.0,
+                    precision_rounding=product.uom_id.rounding,
+                ) > 0
+            ):
+                raise ValidationError(
+                    _("Los productos unicos solo pueden tener una unidad en stock.")
+                )
+
+    @api.constrains(
+        "has_serial_number",
+        "serial_number_input",
+        "serial_number_ids",
+    )
+    def _check_serial_number(self):
+        for product in self:
+            if (
+                product.has_serial_number
+                and not product.serial_number_input
+                and not product.serial_number_ids
+            ):
+                raise ValidationError(
+                    _("Debes indicar el numero de serie cuando la casilla este marcada.")
+                )
+
+    def _sync_pending_serial_numbers(self):
+        serial_model = self.env["product.template.serial.number"]
+        for product in self:
+            if not product.has_serial_number or not product.serial_number_input:
+                continue
+            serial_values = product._parse_serial_numbers(product.serial_number_input)
+            existing_serials = set(product.serial_number_ids.mapped("name"))
+            duplicate_serials = sorted(existing_serials.intersection(serial_values))
+            if duplicate_serials:
+                raise ValidationError(
+                    _(
+                        "Los siguientes numeros de serie ya existen en este producto: %s"
+                    )
+                    % ", ".join(duplicate_serials)
+                )
+            serial_model.create(
+                [{"product_tmpl_id": product.id, "name": serial_value} for serial_value in serial_values]
+            )
+            super(Product, product).write({"serial_number_input": False})
+
+    @api.model
+    def _parse_serial_numbers(self, serial_text):
+        raw_chunks = (serial_text or "").replace(";", "\n").replace(",", "\n").splitlines()
+        serial_values = []
+        for chunk in raw_chunks:
+            serial_value = chunk.strip()
+            if not serial_value:
+                continue
+            if serial_value in serial_values:
+                raise ValidationError(
+                    _("No puedes guardar numeros de serie duplicados en la misma entrada.")
+                )
+            serial_values.append(serial_value)
+        return serial_values
+
+    @api.model
+    def _parse_piece_values(self, piece_text):
+        raw_chunks = (piece_text or "").replace(";", "\n").replace(",", "\n").splitlines()
+        piece_values = []
+        for chunk in raw_chunks:
+            piece_value = chunk.strip()
+            if not piece_value:
+                continue
+            piece_values.append(piece_value)
+        return piece_values
+
+    def _compute_price_taxes(self, base_amount, taxes, currency):
+        self.ensure_one()
+        base_amount = base_amount or 0.0
+        taxes = taxes.filtered(
+            lambda tax: not tax.company_id
+            or tax.company_id == (self.company_id or self.env.company)
+        )
+        if not taxes:
+            return {"tax_amount": 0.0, "total": base_amount}
+        variant = self.product_variant_id
+        tax_res = taxes.compute_all(
+            base_amount,
+            currency=currency,
+            quantity=1.0,
+            product=variant,
+            partner=False,
+        )
+        return {
+            "tax_amount": tax_res["total_included"] - tax_res["total_excluded"],
+            "total": tax_res["total_included"],
+        }
+
+    def _format_history_html(self, lines, empty_message):
+        if not lines:
+            return self._empty_history_html(empty_message)
+
+        items = []
+        subtotal_total = 0.0
+        tax_total = 0.0
+        grand_total = 0.0
+        currency_label = ""
+        for line in lines:
+            if line._name == "purchase.order.line":
+                date_value = line.order_id.date_order
+                partner_name = line.partner_id.display_name
+                quantity = line.product_qty
+                currency = line.currency_id or line.company_id.currency_id
+            else:
+                date_value = line.order_id.date_order
+                partner_name = line.order_partner_id.display_name
+                quantity = line.product_uom_qty
+                currency = line.currency_id or line.company_id.currency_id
+            subtotal = line.price_subtotal
+            total = line.price_total
+            tax_amount = total - subtotal
+            subtotal_total += subtotal
+            tax_total += tax_amount
+            grand_total += total
+            date_label = date_value.strftime("%d/%m/%Y") if date_value else "Sin fecha"
+            partner_label = escape(partner_name or "Sin contacto")
+            currency_label = escape(currency.name or "")
+            items.append(
+                "<li class='mb-2'>"
+                f"<strong>{escape(date_label)}</strong> - {partner_label}<br/>"
+                f"{quantity:.2f} x {line.price_unit:.2f} {currency_label}<br/>"
+                f"Base: {subtotal:.2f} {currency_label} | Impuesto: {tax_amount:.2f} {currency_label} | Total: {total:.2f} {currency_label}"
+                "</li>"
+            )
+
+        totals_html = (
+            "<div class='mb-3'>"
+            f"<strong>Base:</strong> {subtotal_total:.2f} {currency_label}"
+            f"<br/><strong>Impuestos:</strong> {tax_total:.2f} {currency_label}"
+            f"<br/><strong>Total:</strong> {grand_total:.2f} {currency_label}"
+            "</div>"
+        )
+        return f"{totals_html}<ul class='mb-0'>{''.join(items)}</ul>"
+
+    @staticmethod
+    def _empty_history_html(message):
+        return f"<p class='text-muted mb-0'>{escape(message)}</p>"
