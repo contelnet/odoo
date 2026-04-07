@@ -3,10 +3,10 @@ import pandas as pd
 import xmlrpc.client
 
 # Configuración de conexión Odoo
-url = 'http://localhost:8069'
-bd = 'pruebas'
+url = 'https://odoo.contelnet.com'
+bd = 'prodOdoo'
 usuario = 'plopez@contelnet.com'
-password = 'admin'
+password = 'Plr10102002**'
 
 common = xmlrpc.client.ServerProxy(f'{url}/xmlrpc/2/common')
 uid = common.authenticate(bd, usuario, password, {})
