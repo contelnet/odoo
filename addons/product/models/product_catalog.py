@@ -8,6 +8,10 @@ from odoo.tools.float_utils import float_compare, float_is_zero
 class Product(models.Model):
     _inherit = "product.template"
 
+    @api.model
+    def _is_model_available(self, model_name):
+        return model_name in self.env.registry
+
     def init(self):
         """Autocura de esquema para instalaciones donde el upgrade de módulo quedó a medias.
 
@@ -19,15 +23,20 @@ class Product(models.Model):
             ALTER TABLE product_template
                 ADD COLUMN IF NOT EXISTS ticket_active boolean,
                 ADD COLUMN IF NOT EXISTS product_mode varchar,
+                ADD COLUMN IF NOT EXISTS product_business_type varchar,
                 ADD COLUMN IF NOT EXISTS product_notes text,
+                ADD COLUMN IF NOT EXISTS canon_amount numeric,
+                ADD COLUMN IF NOT EXISTS purchase_tax_percent numeric,
+                ADD COLUMN IF NOT EXISTS sale_tax_percent numeric,
                 ADD COLUMN IF NOT EXISTS piece_input varchar,
+                ADD COLUMN IF NOT EXISTS piece_product_id integer,
                 ADD COLUMN IF NOT EXISTS serial_number_input varchar,
                 ADD COLUMN IF NOT EXISTS supplier_partner_id integer,
                 ADD COLUMN IF NOT EXISTS supplier_reference text,
                 ADD COLUMN IF NOT EXISTS stock_location_id integer
             """
         )
-        # Valores por defecto para campos requeridos introducidos por esta personalización.
+
         self.env.cr.execute(
             """
             UPDATE product_template
@@ -42,6 +51,16 @@ class Product(models.Model):
              WHERE product_mode IS NULL
             """
         )
+        self.env.cr.execute(
+            """
+            UPDATE product_template
+               SET product_business_type = CASE
+                    WHEN type = 'service' THEN 'service'
+                    ELSE 'goods'
+               END
+             WHERE product_business_type IS NULL
+            """
+        )
 
     ticket_active = fields.Boolean(
         "Disponible para tickets", default=True, required=True
@@ -52,13 +71,33 @@ class Product(models.Model):
         default="pieces",
         required=True,
     )
+    product_business_type = fields.Selection(
+        selection=[
+            ("goods", "Bienes"),
+            ("service", "Servicio"),
+            ("software", "Software"),
+        ],
+        string="Tipo comercial",
+        default="goods",
+        required=True,
+    )
     product_notes = fields.Text(string="Descripcion")
+    canon_amount = fields.Monetary(
+        string="Canon",
+        currency_field="currency_id",
+        help="Importe manual del canon aplicado al producto.",
+    )
     has_serial_number = fields.Boolean(
         string="Tiene numero de serie",
         compute="_compute_has_serial_number",
         inverse="_inverse_has_serial_number",
     )
     piece_input = fields.Char(string="Anadir pieza")
+    piece_product_id = fields.Many2one(
+        comodel_name="product.template",
+        string="Añadir producto existente",
+        help="Busca un producto existente y guárdalo para añadirlo como pieza.",
+    )
     piece_ids = fields.One2many(
         comodel_name="product.template.piece",
         inverse_name="product_tmpl_id",
@@ -98,29 +137,57 @@ class Product(models.Model):
     stock_location_id = fields.Many2one(
         comodel_name="stock.location",
         string="Ubicacion",
-        domain="[('usage', '=', 'internal'), '|', ('company_id', '=', False), ('company_id', '=', company_id)]",
+        domain="[]",
         default=lambda self: self._default_stock_location_id(),
-        check_company=True,
+        check_company=False,
     )
     purchase_tax_amount = fields.Monetary(
         string="Impuesto de compra",
         currency_field="cost_currency_id",
         compute="_compute_tax_amounts",
     )
+    purchase_tax_percent = fields.Float(
+        string="% Impuesto compra",
+        digits=(16, 4),
+        default=0.0,
+        help="Porcentaje de impuesto de compra editable manualmente.",
+    )
     purchase_total = fields.Monetary(
         string="Costo con impuesto",
         currency_field="cost_currency_id",
         compute="_compute_tax_amounts",
+    )
+    purchase_total_with_canon = fields.Monetary(
+        string="Costo + canon",
+        currency_field="cost_currency_id",
+        compute="_compute_totals_with_canon",
     )
     sale_tax_amount = fields.Monetary(
         string="Impuesto de venta",
         currency_field="currency_id",
         compute="_compute_tax_amounts",
     )
+    sale_tax_percent = fields.Float(
+        string="% Impuesto venta",
+        digits=(16, 4),
+        default=0.0,
+        help="Porcentaje de impuesto de venta editable manualmente.",
+    )
+
+    @api.constrains('purchase_tax_percent', 'sale_tax_percent')
+    def _check_tax_percent_positive(self):
+        for product in self:
+            if product.purchase_tax_percent < 0 or product.sale_tax_percent < 0:
+                raise ValidationError(_('El porcentaje de impuesto no puede ser negativo.'))
     sale_total = fields.Monetary(
         string="Precio con impuesto",
         currency_field="currency_id",
         compute="_compute_tax_amounts",
+    )
+    sale_total_with_canon = fields.Monetary(
+        string="Venta + canon",
+        currency_field="currency_id",
+        compute="_compute_totals_with_canon",
     )
     purchase_history_html = fields.Html(
         string="Historial de compras",
@@ -135,6 +202,8 @@ class Product(models.Model):
 
     @api.model
     def _default_stock_location_id(self):
+        if not self._is_model_available("stock.warehouse") or not self._is_model_available("stock.location"):
+            return False
         warehouse = self.env["stock.warehouse"].search(
             [("company_id", "=", self.env.company.id)], limit=1
         )
@@ -164,10 +233,10 @@ class Product(models.Model):
             )
         return self.product_variant_id
 
-    @api.depends("tracking")
     def _compute_has_serial_number(self):
         for product in self:
-            product.has_serial_number = product.tracking == "serial"
+            tracking_value = product.tracking if "tracking" in product._fields else "none"
+            product.has_serial_number = tracking_value == "serial"
 
     @api.depends("serial_number_ids")
     def _compute_serial_number_count(self):
@@ -183,16 +252,41 @@ class Product(models.Model):
     def _onchange_piece_prices(self):
         self._apply_piece_total_price()
 
+    @api.onchange("product_business_type")
+    def _onchange_product_business_type(self):
+        for product in self:
+            if product.product_business_type == "service":
+                product.type = "service"
+            else:
+                product.type = "consu"
+
+    @api.onchange("type")
+    def _onchange_type_to_business_type(self):
+        for product in self:
+            if product.type == "service":
+                product.product_business_type = "service"
+            elif product.product_business_type == "service":
+                product.product_business_type = "goods"
+
     def _inverse_has_serial_number(self):
         for product in self:
+            if "tracking" not in product._fields:
+                if not product.has_serial_number:
+                    product.serial_number_input = False
+                continue
             if product.has_serial_number:
-                product.is_storable = True
+                if "is_storable" in product._fields:
+                    product.is_storable = True
                 product.tracking = "serial"
             elif product.tracking == "serial":
                 product.tracking = "none"
                 product.serial_number_input = False
 
     def _compute_stock_qty(self):
+        if not self._is_model_available("stock.quant"):
+            for product in self:
+                product.stock_qty = 0.0
+            return
         quant_model = self.env["stock.quant"].sudo()
         for product in self:
             location = product._get_stock_location()
@@ -205,6 +299,8 @@ class Product(models.Model):
             )
 
     def _inverse_stock_qty(self):
+        if not self._is_model_available("stock.quant"):
+            return
         quant_model = self.env["stock.quant"].sudo()
         for product in self:
             location = product._get_stock_location()
@@ -222,7 +318,8 @@ class Product(models.Model):
                         "Los productos unicos solo admiten una unidad en stock."
                     )
                 )
-            if product.tracking == "serial" and float_compare(
+            tracking_value = product.tracking if "tracking" in product._fields else "none"
+            if tracking_value == "serial" and float_compare(
                 target_qty,
                 round(target_qty),
                 precision_rounding=variant.uom_id.rounding,
@@ -232,7 +329,8 @@ class Product(models.Model):
                         "Los productos con numero de serie solo admiten cantidades enteras."
                     )
                 )
-            product.is_storable = True
+            if "is_storable" in product._fields:
+                product.is_storable = True
             current_qty = quant_model._get_available_quantity(
                 variant, location, strict=True
             )
@@ -241,28 +339,34 @@ class Product(models.Model):
                 continue
             quant_model._update_available_quantity(variant, location, quantity=delta_qty)
 
-    @api.depends("standard_price", "supplier_taxes_id", "list_price", "taxes_id", "company_id")
+    @api.depends("standard_price", "list_price", "purchase_tax_percent", "sale_tax_percent")
     def _compute_tax_amounts(self):
         for product in self:
-            purchase_taxes_res = product._compute_price_taxes(
-                product.standard_price,
-                product.supplier_taxes_id,
-                product.cost_currency_id,
-            )
-            sale_taxes_res = product._compute_price_taxes(
-                product.list_price,
-                product.taxes_id,
-                product.currency_id,
-            )
-            product.purchase_tax_amount = purchase_taxes_res["tax_amount"]
-            product.purchase_total = purchase_taxes_res["total"]
-            product.sale_tax_amount = sale_taxes_res["tax_amount"]
-            product.sale_total = sale_taxes_res["total"]
+            purchase_base = product.standard_price or 0.0
+            sale_base = product.list_price or 0.0
+            purchase_percent = product.purchase_tax_percent or 0.0
+            sale_percent = product.sale_tax_percent or 0.0
+
+            product.purchase_tax_amount = purchase_base * purchase_percent / 100.0
+            product.purchase_total = purchase_base + product.purchase_tax_amount
+            product.sale_tax_amount = sale_base * sale_percent / 100.0
+            product.sale_total = sale_base + product.sale_tax_amount
+
+    @api.depends("purchase_total", "sale_total", "canon_amount")
+    def _compute_totals_with_canon(self):
+        for product in self:
+            canon = product.canon_amount or 0.0
+            product.purchase_total_with_canon = (product.purchase_total or 0.0) + canon
+            product.sale_total_with_canon = (product.sale_total or 0.0) + canon
 
     def _compute_histories(self):
-        purchase_lines_model = self.env["purchase.order.line"].sudo()
-        sale_lines_model = self.env["sale.order.line"].sudo()
+        purchase_lines_model = self.env["purchase.order.line"].sudo() if self._is_model_available("purchase.order.line") else False
+        sale_lines_model = self.env["sale.order.line"].sudo() if self._is_model_available("sale.order.line") else False
         for product in self:
+            if not purchase_lines_model or not sale_lines_model:
+                product.purchase_history_html = product._empty_history_html("Sin compras registradas.")
+                product.sale_history_html = product._empty_history_html("Sin ventas registradas.")
+                continue
             if not product.id:
                 product.purchase_history_html = product._empty_history_html("Sin compras registradas.")
                 product.sale_history_html = product._empty_history_html("Sin ventas registradas.")
@@ -302,12 +406,23 @@ class Product(models.Model):
 
     def action_save_product_record(self):
         self.ensure_one()
+        pieces_added = self._sync_pending_pieces()
+        self._apply_piece_total_price()
+        serials_added = self._sync_pending_serial_numbers()
+
+        detail_parts = []
+        if pieces_added:
+            detail_parts.append(_("Piezas añadidas: %s") % pieces_added)
+        if serials_added:
+            detail_parts.append(_("Números de serie añadidos: %s") % serials_added)
+        detail_suffix = f" {' | '.join(detail_parts)}" if detail_parts else ""
+
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
             "params": {
                 "title": _("Producto guardado"),
-                "message": _("Los cambios del producto se han guardado correctamente."),
+                "message": _("Los cambios del producto se han guardado correctamente.") + detail_suffix,
                 "type": "success",
                 "sticky": False,
             },
@@ -318,7 +433,11 @@ class Product(models.Model):
         for vals in vals_list:
             if any(key in vals for key in ("stock_qty", "stock_location_id", "has_serial_number")):
                 vals.setdefault("is_storable", True)
-            if vals.get("stock_location_id") and not vals.get("company_id"):
+            if (
+                vals.get("stock_location_id")
+                and not vals.get("company_id")
+                and self._is_model_available("stock.location")
+            ):
                 location = self.env["stock.location"].browse(vals["stock_location_id"])
                 vals["company_id"] = location.company_id.id or self.env.company.id
         products = super().create(vals_list)
@@ -330,13 +449,17 @@ class Product(models.Model):
     def write(self, vals):
         if any(key in vals for key in ("stock_qty", "stock_location_id", "has_serial_number")):
             vals.setdefault("is_storable", True)
-        if vals.get("stock_location_id") and not vals.get("company_id"):
+        if (
+            vals.get("stock_location_id")
+            and not vals.get("company_id")
+            and self._is_model_available("stock.location")
+        ):
             location = self.env["stock.location"].browse(vals["stock_location_id"])
             vals["company_id"] = location.company_id.id or self.env.company.id
         result = super().write(vals)
-        if "piece_input" in vals or "product_mode" in vals:
+        if "piece_input" in vals or "piece_product_id" in vals or "product_mode" in vals:
             self._sync_pending_pieces()
-        if "piece_ids" in vals or "piece_input" in vals or "product_mode" in vals:
+        if "piece_ids" in vals or "piece_input" in vals or "piece_product_id" in vals or "product_mode" in vals:
             self._apply_piece_total_price()
         if "serial_number_input" in vals or "has_serial_number" in vals:
             self._sync_pending_serial_numbers()
@@ -344,14 +467,21 @@ class Product(models.Model):
 
     def _sync_pending_pieces(self):
         piece_model = self.env["product.template.piece"]
+        created_count = 0
         for product in self:
-            if product.product_mode != "pieces" or not product.piece_input:
+            if product.product_mode != "pieces":
                 continue
             piece_values = product._parse_piece_values(product.piece_input)
-            piece_model.create(
+            if product.piece_product_id and product.piece_product_id != product:
+                piece_values.append(product.piece_product_id.display_name or product.piece_product_id.name)
+            if not piece_values:
+                continue
+            created_pieces = piece_model.create(
                 [{"product_tmpl_id": product.id, "name": piece_value} for piece_value in piece_values]
             )
-            super(Product, product).write({"piece_input": False})
+            created_count += len(created_pieces)
+            super(Product, product).write({"piece_input": False, "piece_product_id": False})
+        return created_count
 
     def _apply_piece_total_price(self):
         for product in self:
@@ -395,6 +525,7 @@ class Product(models.Model):
 
     def _sync_pending_serial_numbers(self):
         serial_model = self.env["product.template.serial.number"]
+        created_count = 0
         for product in self:
             if not product.has_serial_number or not product.serial_number_input:
                 continue
@@ -408,10 +539,12 @@ class Product(models.Model):
                     )
                     % ", ".join(duplicate_serials)
                 )
-            serial_model.create(
+            created_serials = serial_model.create(
                 [{"product_tmpl_id": product.id, "name": serial_value} for serial_value in serial_values]
             )
+            created_count += len(created_serials)
             super(Product, product).write({"serial_number_input": False})
+        return created_count
 
     @api.model
     def _parse_serial_numbers(self, serial_text):
@@ -493,6 +626,7 @@ class Product(models.Model):
             items.append(
                 "<li class='mb-2'>"
                 f"<strong>{escape(date_label)}</strong> - {partner_label}<br/>"
+                f"Variante: {escape(line.product_id.display_name or line.product_id.name or 'N/A')}<br/>"
                 f"{quantity:.2f} x {line.price_unit:.2f} {currency_label}<br/>"
                 f"Base: {subtotal:.2f} {currency_label} | Impuesto: {tax_amount:.2f} {currency_label} | Total: {total:.2f} {currency_label}"
                 "</li>"
