@@ -93,6 +93,7 @@
                             <field name="stock_qty" />
                         </group>
                         <group string="Precios y proveedor">
+                            <!-- COMPRA -->
                             <field
                                 name="standard_price"
                                 string="Precio de compra"
@@ -100,12 +101,16 @@
                                 options="{'currency_field': 'cost_currency_id', 'field_digits': True}"
                                 groups="base.group_user"
                             />
+
                             <field
-                                name="purchase_tax_percent"
-                                string="% Impuesto compra"
-                                widget="percent"
+                                name="supplier_taxes_id"
+                                string="Impuestos de compra"
+                                widget="many2many_tags"
+                                options="{'no_create': False}"
+                                context="{'default_type_tax_use': 'purchase'}"
                                 groups="base.group_user"
                             />
+
                             <field
                                 name="purchase_tax_amount"
                                 string="Impuestos compra"
@@ -114,11 +119,13 @@
                                 options="{'currency_field': 'cost_currency_id', 'field_digits': True}"
                                 groups="base.group_user"
                             />
+
                             <field
                                 name="canon_amount"
                                 widget="monetary"
                                 options="{'currency_field': 'currency_id', 'field_digits': True}"
                             />
+
                             <field
                                 name="purchase_total_with_canon"
                                 string="Costo total"
@@ -127,12 +134,14 @@
                                 options="{'currency_field': 'cost_currency_id', 'field_digits': True}"
                                 groups="base.group_user"
                             />
+
                             <field
                                 name="supplier_partner_id"
                                 placeholder="Selecciona una cuenta de proveedor"
                                 options="{'no_create': False}"
                                 groups="base.group_user"
                             />
+
                             <field
                                 name="supplier_reference"
                                 string="Enlace o referencia externa"
@@ -140,17 +149,23 @@
                                 placeholder="Enlace, pedido web o cualquier referencia externa"
                                 groups="base.group_user"
                             />
+
+                            <!-- VENTA -->
                             <field
                                 name="list_price"
                                 string="Precio de venta"
                                 widget="monetary"
                                 options="{'currency_field': 'currency_id', 'field_digits': True}"
                             />
+
                             <field
-                                name="sale_tax_percent"
-                                string="% Impuesto venta"
-                                widget="percent"
+                                name="taxes_id"
+                                string="Impuestos de venta"
+                                widget="many2many_tags"
+                                options="{'no_create': False}"
+                                context="{'default_type_tax_use': 'sale'}"
                             />
+
                             <field
                                 name="sale_tax_amount"
                                 string="Impuestos venta"
@@ -158,6 +173,7 @@
                                 widget="monetary"
                                 options="{'currency_field': 'currency_id', 'field_digits': True}"
                             />
+
                             <field
                                 name="sale_total_with_canon"
                                 string="Venta total"
@@ -165,6 +181,7 @@
                                 widget="monetary"
                                 options="{'currency_field': 'currency_id', 'field_digits': True}"
                             />
+
                         </group>
                     </group>
 
