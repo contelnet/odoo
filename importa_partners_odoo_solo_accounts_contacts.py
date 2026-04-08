@@ -4,9 +4,9 @@ import xmlrpc.client
 
 # Configuración de conexión Odoo
 url = 'https://odoo.contelnet.com'
-bd = ''
-usuario = ''
-password = ''
+bd = 'prod-contel'
+usuario = 'tecnicos@contelnet.com'
+password = 'aofO3fJ8IIO5kqHA4cWuym6khxe2Htsv'
 
 common = xmlrpc.client.ServerProxy(f'{url}/xmlrpc/2/common')
 uid = common.authenticate(bd, usuario, password, {})
@@ -16,7 +16,7 @@ models = xmlrpc.client.ServerProxy(f'{url}/xmlrpc/2/object')
 cuentas = pd.read_csv('accounts.csv').fillna('')
 contactos = pd.read_csv('contacts.csv').fillna('')
 
-# Crear empresas (is_company=True) y mapear accountid -> partner_id
+# Crear empresas
 accountid2partnerid = {}
 for _, row in cuentas.iterrows():
     vals = {
@@ -46,10 +46,15 @@ for _, row in cuentas.iterrows():
     partner_id = models.execute_kw(bd, uid, password, 'res.partner', 'create', [vals])
     accountid2partnerid[row['accountid']] = partner_id
 
-# Crear contactos y vincularlos a la empresa usando contel_cuenta
 for _, row in contactos.iterrows():
+    first = str(row.get('firstname', '')).strip()
+    last = str(row.get('lastname', '')).strip()
+    full_name = ' '.join(p for p in [first, last] if p)
+
     vals = {
-        'name': row['fullname'] if row.get('fullname') else (row.get('firstname', '') + ' ' + row.get('lastname', '')),
+        'name': full_name,
+        'first_name': first,        # → res.partner.first_name
+        'last_name': last,          # → res.partner.last_name
         'is_company': False,
         'company_type': 'person',
         'type': 'contact',
@@ -59,15 +64,14 @@ for _, row in contactos.iterrows():
         'function': row.get('jobtitle', ''),
         'street': row.get('address1_line1', ''),
         'city': row.get('address1_city', ''),
-        'zip': row.get('address1_postalcode', ''),
+        'zip': str(row.get('address1_postalcode', '')).strip(),
     }
+
     # Vincular con empresa usando contel_cuenta
-    parent_id = None
-    cuenta_id = row.get('contel_cuenta', '').strip()
+    cuenta_id = str(row.get('contel_cuenta', '')).strip()
     if cuenta_id and cuenta_id in accountid2partnerid:
-        parent_id = accountid2partnerid[cuenta_id]
-    if parent_id:
-        vals['parent_id'] = parent_id
+        vals['parent_id'] = accountid2partnerid[cuenta_id]
+
     models.execute_kw(bd, uid, password, 'res.partner', 'create', [vals])
 
 print('¡Importación completada! Revisa Odoo para ver los datos.')

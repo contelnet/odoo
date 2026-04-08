@@ -189,6 +189,11 @@ class Product(models.Model):
         currency_field="cost_currency_id",
         compute="_compute_tax_amounts",
     )
+    purchase_tax_percent = fields.Float(
+        string="% impuesto compra",
+        compute="_compute_tax_percentages",
+        digits=(16, 2),
+    )
     purchase_total = fields.Monetary(
         string="Costo con impuesto",
         currency_field="cost_currency_id",
@@ -203,6 +208,11 @@ class Product(models.Model):
         string="Impuesto de venta",
         currency_field="currency_id",
         compute="_compute_tax_amounts",
+    )
+    sale_tax_percent = fields.Float(
+        string="% impuesto venta",
+        compute="_compute_tax_percentages",
+        digits=(16, 2),
     )
 
     sale_total = fields.Monetary(
@@ -409,6 +419,28 @@ class Product(models.Model):
             product.purchase_total = purchase_vals["total"]
             product.sale_tax_amount = sale_vals["tax_amount"]
             product.sale_total = sale_vals["total"]
+
+    @api.depends(
+        "standard_price",
+        "list_price",
+        "purchase_tax_amount",
+        "sale_tax_amount",
+    )
+    def _compute_tax_percentages(self):
+        for product in self:
+            purchase_base = product.standard_price or 0.0
+            sale_base = product.list_price or 0.0
+
+            product.purchase_tax_percent = (
+                (product.purchase_tax_amount / purchase_base) * 100.0
+                if purchase_base
+                else 0.0
+            )
+            product.sale_tax_percent = (
+                (product.sale_tax_amount / sale_base) * 100.0
+                if sale_base
+                else 0.0
+            )
 
     @api.onchange("supplier_taxes_id", "taxes_id")
     def _onchange_catalog_taxes_filter(self):
