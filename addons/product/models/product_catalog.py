@@ -431,8 +431,6 @@ class Product(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
-            if any(key in vals for key in ("stock_qty", "stock_location_id", "has_serial_number")):
-                vals.setdefault("is_storable", True)
             if (
                 vals.get("stock_location_id")
                 and not vals.get("company_id")
@@ -447,8 +445,7 @@ class Product(models.Model):
         return products
 
     def write(self, vals):
-        if any(key in vals for key in ("stock_qty", "stock_location_id", "has_serial_number")):
-            vals.setdefault("is_storable", True)
+        # No tocar is_storable, es compute
         if (
             vals.get("stock_location_id")
             and not vals.get("company_id")
