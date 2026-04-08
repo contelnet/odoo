@@ -9,6 +9,49 @@ class Product(models.Model):
     _inherit = "product.template"
 
     @api.model
+    def _default_sale_taxes(self):
+        if not self._is_model_available("account.tax"):
+            return False
+        companies = self.env.companies
+        if "account_sale_tax_id" in companies._fields and companies.account_sale_tax_id:
+            return companies.account_sale_tax_id
+        root_company = companies.root_id.sudo() if companies.root_id else False
+        if root_company and "account_sale_tax_id" in root_company._fields:
+            return root_company.account_sale_tax_id
+        return False
+
+    @api.model
+    def _default_purchase_taxes(self):
+        if not self._is_model_available("account.tax"):
+            return False
+        companies = self.env.companies
+        if "account_purchase_tax_id" in companies._fields and companies.account_purchase_tax_id:
+            return companies.account_purchase_tax_id
+        root_company = companies.root_id.sudo() if companies.root_id else False
+        if root_company and "account_purchase_tax_id" in root_company._fields:
+            return root_company.account_purchase_tax_id
+        return False
+
+    taxes_id = fields.Many2many(
+        'account.tax',
+        'product_taxes_rel',
+        'prod_id',
+        'tax_id',
+        string="Impuestos de venta",
+        help="Impuestos por defecto al vender el producto",
+        default=lambda self: self._default_sale_taxes(),
+    )
+    supplier_taxes_id = fields.Many2many(
+        'account.tax',
+        'product_supplier_taxes_rel',
+        'prod_id',
+        'tax_id',
+        string="Impuestos de compra",
+        help="Impuestos por defecto al comprar el producto",
+        default=lambda self: self._default_purchase_taxes(),
+    )
+
+    @api.model
     def _is_model_available(self, model_name):
         return model_name in self.env.registry
 
@@ -146,12 +189,6 @@ class Product(models.Model):
         currency_field="cost_currency_id",
         compute="_compute_tax_amounts",
     )
-    purchase_tax_percent = fields.Float(
-        string="% Impuesto compra",
-        digits=(16, 4),
-        default=0.0,
-        help="Porcentaje de impuesto de compra editable manualmente.",
-    )
     purchase_total = fields.Monetary(
         string="Costo con impuesto",
         currency_field="cost_currency_id",
@@ -167,18 +204,7 @@ class Product(models.Model):
         currency_field="currency_id",
         compute="_compute_tax_amounts",
     )
-    sale_tax_percent = fields.Float(
-        string="% Impuesto venta",
-        digits=(16, 4),
-        default=0.0,
-        help="Porcentaje de impuesto de venta editable manualmente.",
-    )
 
-    @api.constrains('purchase_tax_percent', 'sale_tax_percent')
-    def _check_tax_percent_positive(self):
-        for product in self:
-            if product.purchase_tax_percent < 0 or product.sale_tax_percent < 0:
-                raise ValidationError(_('El porcentaje de impuesto no puede ser negativo.'))
     sale_total = fields.Monetary(
         string="Precio con impuesto",
         currency_field="currency_id",
@@ -308,10 +334,14 @@ class Product(models.Model):
                 continue
             variant = product._get_single_variant()
             target_qty = product.stock_qty
+            # Obtener precision_rounding seguro
+            precision_rounding = getattr(variant.uom_id, "rounding", None)
+            if not precision_rounding or precision_rounding <= 0:
+                precision_rounding = 0.01
             if product.product_mode == "single" and float_compare(
                 target_qty,
                 1.0,
-                precision_rounding=variant.uom_id.rounding,
+                precision_rounding=precision_rounding,
             ) > 0:
                 raise ValidationError(
                     _(
@@ -322,7 +352,7 @@ class Product(models.Model):
             if tracking_value == "serial" and float_compare(
                 target_qty,
                 round(target_qty),
-                precision_rounding=variant.uom_id.rounding,
+                precision_rounding=precision_rounding,
             ):
                 raise ValidationError(
                     _(
@@ -335,22 +365,10 @@ class Product(models.Model):
                 variant, location, strict=True
             )
             delta_qty = target_qty - current_qty
-            if float_is_zero(delta_qty, precision_rounding=variant.uom_id.rounding):
+            if float_is_zero(delta_qty, precision_rounding=precision_rounding):
                 continue
             quant_model._update_available_quantity(variant, location, quantity=delta_qty)
 
-    @api.depends("standard_price", "list_price", "purchase_tax_percent", "sale_tax_percent")
-    def _compute_tax_amounts(self):
-        for product in self:
-            purchase_base = product.standard_price or 0.0
-            sale_base = product.list_price or 0.0
-            purchase_percent = product.purchase_tax_percent or 0.0
-            sale_percent = product.sale_tax_percent or 0.0
-
-            product.purchase_tax_amount = purchase_base * purchase_percent / 100.0
-            product.purchase_total = purchase_base + product.purchase_tax_amount
-            product.sale_tax_amount = sale_base * sale_percent / 100.0
-            product.sale_total = sale_base + product.sale_tax_amount
 
     @api.depends("purchase_total", "sale_total", "canon_amount")
     def _compute_totals_with_canon(self):
@@ -358,6 +376,71 @@ class Product(models.Model):
             canon = product.canon_amount or 0.0
             product.purchase_total_with_canon = (product.purchase_total or 0.0) + canon
             product.sale_total_with_canon = (product.sale_total or 0.0) + canon
+
+    @api.depends(
+        "standard_price",
+        "list_price",
+        "supplier_taxes_id",
+        "taxes_id",
+        "company_id",
+        "currency_id",
+        "cost_currency_id",
+    )
+    def _compute_tax_amounts(self):
+        for product in self:
+            purchase_base = product.standard_price or 0.0
+            sale_base = product.list_price or 0.0
+
+            purchase_currency = product.cost_currency_id or product.currency_id
+            sale_currency = product.currency_id
+
+            purchase_vals = product._compute_price_taxes(
+                purchase_base,
+                product.supplier_taxes_id,
+                purchase_currency,
+            )
+            sale_vals = product._compute_price_taxes(
+                sale_base,
+                product.taxes_id,
+                sale_currency,
+            )
+
+            product.purchase_tax_amount = purchase_vals["tax_amount"]
+            product.purchase_total = purchase_vals["total"]
+            product.sale_tax_amount = sale_vals["tax_amount"]
+            product.sale_total = sale_vals["total"]
+
+    @api.onchange("supplier_taxes_id", "taxes_id")
+    def _onchange_catalog_taxes_filter(self):
+        for product in self:
+            if product.supplier_taxes_id and "type_tax_use" in product.supplier_taxes_id._fields:
+                product.supplier_taxes_id = product.supplier_taxes_id.filtered(
+                    lambda tax: tax.type_tax_use == "purchase"
+                )
+            if product.taxes_id and "type_tax_use" in product.taxes_id._fields:
+                product.taxes_id = product.taxes_id.filtered(
+                    lambda tax: tax.type_tax_use == "sale"
+                )
+
+    @api.constrains("supplier_taxes_id", "taxes_id")
+    def _check_catalog_taxes_filter(self):
+        for product in self:
+            if (
+                product.supplier_taxes_id
+                and "type_tax_use" in product.supplier_taxes_id._fields
+                and any(tax.type_tax_use != "purchase" for tax in product.supplier_taxes_id)
+            ):
+                raise ValidationError(
+                    _("Los impuestos de compra solo pueden tener tipo de uso 'purchase'.")
+                )
+            if (
+                product.taxes_id
+                and "type_tax_use" in product.taxes_id._fields
+                and any(tax.type_tax_use != "sale" for tax in product.taxes_id)
+            ):
+                raise ValidationError(
+                    _("Los impuestos de venta solo pueden tener tipo de uso 'sale'.")
+                )
 
     def _compute_histories(self):
         purchase_lines_model = self.env["purchase.order.line"].sudo() if self._is_model_available("purchase.order.line") else False
@@ -572,10 +655,15 @@ class Product(models.Model):
     def _compute_price_taxes(self, base_amount, taxes, currency):
         self.ensure_one()
         base_amount = base_amount or 0.0
-        taxes = taxes.filtered(
-            lambda tax: not tax.company_id
-            or tax.company_id == (self.company_id or self.env.company)
-        )
+        if not taxes:
+            return {"tax_amount": 0.0, "total": base_amount}
+        if not hasattr(taxes, "compute_all"):
+            return {"tax_amount": 0.0, "total": base_amount}
+        if "company_id" in taxes._fields:
+            taxes = taxes.filtered(
+                lambda tax: not tax.company_id
+                or tax.company_id == (self.company_id or self.env.company)
+            )
         if not taxes:
             return {"tax_amount": 0.0, "total": base_amount}
         variant = self.product_variant_id

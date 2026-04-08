@@ -4,9 +4,9 @@ import xmlrpc.client
 
 # Configuración de conexión Odoo
 url = 'https://odoo.contelnet.com'
-bd = 'prodOdoo'
-usuario = 'plopez@contelnet.com'
-password = 'Plr10102002**'
+bd = ''
+usuario = ''
+password = ''
 
 common = xmlrpc.client.ServerProxy(f'{url}/xmlrpc/2/common')
 uid = common.authenticate(bd, usuario, password, {})
@@ -33,7 +33,7 @@ for _, row in cuentas.iterrows():
         'city': row.get('address1_city', ''),
         'zip': row.get('address1_postalcode', ''),
         'comment': row.get('description', ''),
-        # Contratos/mantenimientos y campos personalizados según res_partner.py
+        # Contratos/mantenimientos y campos personalizados
         'contract_office365': str(row.get('contel_office365', '')).strip().lower() in ['true', '1', 'si', 'sí', 'x'],
         'contract_antivirus': str(row.get('contel_antivirus', '')).strip().lower() in ['true', '1', 'si', 'sí', 'x'],
         'contract_acronis': str(row.get('contel_acronis', '')).strip().lower() in ['true', '1', 'si', 'sí', 'x'],
