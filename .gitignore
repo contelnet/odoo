@@ -4,6 +4,7 @@ _build/
 # dotfiles
 .*
 !.gitignore
+!.gitmodules
 !.github
 !.mailmap
 !.weblate.json

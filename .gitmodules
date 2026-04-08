@@ -1,0 +1,4 @@
+[submodule "addons/helpdesk"]
+	path = addons/helpdesk
+	url = https://github.com/contelnet/helpdesk.git
+	branch = 18.0
