@@ -33,7 +33,7 @@ for _, row in cuentas.iterrows():
         'city': row.get('address1_city', ''),
         'zip': row.get('address1_postalcode', ''),
         'comment': row.get('description', ''),
-        # Contratos/mantenimientos y campos personalizados según res_partner.py
+        # Contratos/mantenimientos y campos personalizados
         'contract_office365': str(row.get('contel_office365', '')).strip().lower() in ['true', '1', 'si', 'sí', 'x'],
         'contract_antivirus': str(row.get('contel_antivirus', '')).strip().lower() in ['true', '1', 'si', 'sí', 'x'],
         'contract_acronis': str(row.get('contel_acronis', '')).strip().lower() in ['true', '1', 'si', 'sí', 'x'],
