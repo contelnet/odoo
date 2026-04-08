@@ -4,9 +4,9 @@ import xmlrpc.client
 
 # Configuración de conexión Odoo
 url = 'https://odoo.contelnet.com'
-bd = 'prod-contel'
-usuario = 'tecnicos@contelnet.com'
-password = 'aofO3fJ8IIO5kqHA4cWuym6khxe2Htsv'
+bd = ''
+usuario = ''
+password = ''
 
 common = xmlrpc.client.ServerProxy(f'{url}/xmlrpc/2/common')
 uid = common.authenticate(bd, usuario, password, {})
