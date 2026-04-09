@@ -122,6 +122,18 @@ class Partner(models.Model):
         string="Mantenimiento total informática",
         default=False,
     )
+    contract_it_devices_laptops = fields.Integer(
+        string="Nº portátiles",
+        default=0,
+    )
+    contract_it_devices_desktops = fields.Integer(
+        string="Nº sobremesa",
+        default=0,
+    )
+    contract_it_devices_software = fields.Integer(
+        string="Nº software",
+        default=0,
+    )
     contract_physical_centralita = fields.Boolean(
         string="Mantenimiento centralita física",
         default=False,
@@ -230,6 +242,15 @@ class Partner(models.Model):
         if self.is_company:
             return self.env.ref('crm.view_partner_form_crm_company').id
         return self.env.ref('crm.view_partner_form_crm_person').id
+
+    def get_formview_action(self, access_uid=None):
+        action = super().get_formview_action(access_uid=access_uid)
+        if len(self) != 1:
+            return action
+        view_id = self.get_formview_id(access_uid=access_uid)
+        action['view_id'] = view_id
+        action['views'] = [(view_id, 'form')]
+        return action
 
     def unlink(self):
         if 'calendar.filters' in self.env:

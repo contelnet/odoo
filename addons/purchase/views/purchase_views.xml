@@ -179,7 +179,8 @@
                     </div>
                     <group>
                         <group>
-                            <field name="partner_id" widget="res_partner_many2one" context="{'res_partner_search_mode': 'supplier', 'show_vat': True}"
+                            <field name="partner_id" widget="res_partner_many2one" context="{'res_partner_search_mode': 'supplier', 'show_vat': True, 'default_is_company': True, 'form_view_ref': 'crm.view_partner_form_crm_company'}"
+                                options="{'no_quick_create': True}"
                                 placeholder="Name, TIN, Email, or Reference"
                              readonly="state in ['cancel', 'done', 'purchase']"/>
                             <field name="partner_ref"/>

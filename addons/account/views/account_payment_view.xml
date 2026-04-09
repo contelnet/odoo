@@ -250,11 +250,11 @@
                             <group name="group1">
                                 <field name="payment_type" widget="radio" options="{'horizontal': True}"
                                        readonly="state != 'draft'"/>
-                                <field name="partner_id" context="{'default_is_company': True}" string="Customer"
+                                    <field name="partner_id" context="{'default_is_company': True, 'res_partner_search_mode': 'customer', 'show_vat': True, 'form_view_ref': 'crm.view_partner_form_crm_company'}" string="Customer"
                                        options="{'no_quick_create': True}"
                                        invisible="partner_type != 'customer'"
                                        readonly="state != 'draft'"/>
-                                <field name="partner_id" context="{'default_is_company': True}" string="Vendor"
+                                    <field name="partner_id" context="{'default_is_company': True, 'res_partner_search_mode': 'supplier', 'show_vat': True, 'form_view_ref': 'crm.view_partner_form_crm_company'}" string="Vendor"
                                        options="{'no_quick_create': True}"
                                        invisible="partner_type != 'supplier'"
                                        readonly="state != 'draft'"/>

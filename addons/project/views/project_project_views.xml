@@ -67,7 +67,7 @@
                     <group>
                         <group>
                             <field name="label_tasks" string="Name of the Tasks" placeholder="e.g. Tasks"/>
-                            <field name="partner_id" widget="res_partner_many2one"/>
+                            <field name="partner_id" widget="res_partner_many2one" context="{'res_partner_search_mode': 'customer', 'show_address': 1, 'show_vat': True, 'default_is_company': True, 'form_view_ref': 'crm.view_partner_form_crm_company'}" options="{'no_quick_create': True}"/>
                             <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
                             <field name="company_id" groups="base.group_multi_company" options="{'no_create': True}"/>
                         </group>

@@ -14,7 +14,8 @@
                 <group invisible="action != 'exist'" required="action == 'exist'">
                     <group>
                         <field name="partner_id" invisible="action != 'exist'" required="action == 'exist'"
-                               context="{'res_partner_search_mode': 'customer'}" />
+                               context="{'res_partner_search_mode': 'customer', 'show_vat': True, 'default_is_company': True, 'form_view_ref': 'crm.view_partner_form_crm_company'}"
+                               options="{'no_quick_create': True}" />
                     </group>
                 </group>
                 <footer>

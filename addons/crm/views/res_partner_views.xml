@@ -201,37 +201,74 @@
 
                         <page string="Contratos">
                             <group col="2">
-                                <group string="Contratos">
-                                    <field name="contract_it_bonus" widget="boolean_toggle"/>
-                                    <field name="contract_total_it_maintenance" widget="boolean_toggle"/>
-                                    <field name="contract_physical_centralita" widget="boolean_toggle"/>
-                                    <field name="contract_cloud_centralita" widget="boolean_toggle"/>
-                                    <field name="contract_vpn" widget="boolean_toggle"/>
-                                    <field name="contract_acronis" widget="boolean_toggle"/>
-                                    <field name="contract_antivirus" widget="boolean_toggle"/>
-                                    <field name="contract_office365" widget="boolean_toggle"/>
-                                    <field name="contract_extra_line_ids" nolabel="1" class="o_contract_extra_inline" context="{'default_partner_id': id}">
-                                        <kanban create="false" delete="false" class="o_contract_extra_inline_kanban">
-                                            <field name="option_id"/>
-                                            <field name="enabled"/>
-                                            <templates>
-                                                <t t-name="card">
-                                                    <div class="o_contract_extra_inline_row">
-                                                        <div class="o_contract_extra_inline_label">
-                                                            <field name="option_id"/>
-                                                        </div>
-                                                        <div class="o_contract_extra_inline_toggle">
-                                                            <field name="enabled" widget="boolean_toggle"/>
-                                                        </div>
+                                <group string="Contratos principales" col="2" class="o_contracts_main_group">
+                                    <label for="contract_it_bonus" string="Bono informática"/>
+                                    <div>
+                                        <field name="contract_it_bonus" widget="boolean_toggle" nolabel="1"/>
+                                    </div>
+                                    <label for="contract_total_it_maintenance" string="Mantenimiento total informática"/>
+                                    <div>
+                                        <field name="contract_total_it_maintenance" widget="boolean_toggle" nolabel="1"/>
+                                    </div>
+                                    <label for="contract_physical_centralita" string="Mantenimiento centralita física"/>
+                                    <div>
+                                        <field name="contract_physical_centralita" widget="boolean_toggle" nolabel="1"/>
+                                    </div>
+                                    <label for="contract_cloud_centralita" string="Mantenimiento centralita cloud"/>
+                                    <div>
+                                        <field name="contract_cloud_centralita" widget="boolean_toggle" nolabel="1"/>
+                                    </div>
+                                    <label for="contract_vpn" string="Mantenimiento VPN"/>
+                                    <div>
+                                        <field name="contract_vpn" widget="boolean_toggle" nolabel="1"/>
+                                    </div>
+                                    <label for="contract_acronis" string="Acronis"/>
+                                    <div>
+                                        <field name="contract_acronis" widget="boolean_toggle" nolabel="1"/>
+                                    </div>
+                                    <label for="contract_antivirus" string="Antivirus"/>
+                                    <div>
+                                        <field name="contract_antivirus" widget="boolean_toggle" nolabel="1"/>
+                                    </div>
+                                    <label for="contract_office365" string="Office 365"/>
+                                    <div>
+                                        <field name="contract_office365" widget="boolean_toggle" nolabel="1"/>
+                                    </div>
+                                    <group string="Dispositivos incluidos" invisible="not contract_total_it_maintenance" col="2" colspan="2" class="o_contract_devices_group">
+                                        <label for="contract_it_devices_laptops" string="Nº portátiles"/>
+                                        <field name="contract_it_devices_laptops" nolabel="1"/>
+                                        <label for="contract_it_devices_desktops" string="Nº sobremesa"/>
+                                        <field name="contract_it_devices_desktops" nolabel="1"/>
+                                        <label for="contract_it_devices_software" string="Nº software"/>
+                                        <field name="contract_it_devices_software" nolabel="1"/>
+                                    </group>
+                                </group>
+                                <group string="Incidencias" col="2">
+                                    <label for="contract_incidents_cobro" string="Incidencias cobro (contrato)"/>
+                                    <div>
+                                        <field name="contract_incidents_cobro" widget="boolean_toggle" nolabel="1"/>
+                                    </div>
+                                </group>
+                            </group>
+                            <group string="Contratos extra">
+                                <field name="contract_extra_line_ids" nolabel="1" class="o_contract_extra_inline" context="{'default_partner_id': id}">
+                                    <kanban create="false" delete="false" class="o_contract_extra_inline_kanban">
+                                        <field name="option_id"/>
+                                        <field name="enabled"/>
+                                        <templates>
+                                            <t t-name="card">
+                                                <div class="o_contract_extra_inline_row">
+                                                    <div class="o_contract_extra_inline_label">
+                                                        <field name="option_id"/>
                                                     </div>
-                                                </t>
-                                            </templates>
-                                        </kanban>
-                                    </field>
-                                </group>
-                                <group string="Incidencias">
-                                    <field name="contract_incidents_cobro" widget="boolean_toggle"/>
-                                </group>
+                                                    <div class="o_contract_extra_inline_toggle">
+                                                        <field name="enabled" widget="boolean_toggle"/>
+                                                    </div>
+                                                </div>
+                                            </t>
+                                        </templates>
+                                    </kanban>
+                                </field>
                             </group>
                         </page>
 
@@ -487,6 +524,57 @@
         <field name="view_mode">form</field>
         <field name="view_id" ref="view_attachment_form_lopd_import"/>
         <field name="target">new</field>
+    </record>
+
+    <record id="view_partner_simple_form_crm_universal" model="ir.ui.view">
+        <field name="name">res.partner.simple.form.crm.universal</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_simple_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@class='oe_title']/field[@name='parent_id']" position="replace">
+                <field name="parent_id"
+                    widget="res_partner_many2one"
+                    placeholder="Cuenta..."
+                    domain="[('is_company', '=', True), ('id', '!=', id)]"
+                    context="{'default_is_company': True, 'form_view_ref': 'crm.view_partner_form_crm_company'}"
+                    invisible="is_company"/>
+            </xpath>
+            <xpath expr="//h1/field[@id='company']" position="replace">
+                <field id="company" name="name" default_focus="1" placeholder="Ej: DSI Soluciones Industriales" invisible="not is_company" required="type == 'contact' and is_company"/>
+            </xpath>
+            <xpath expr="//h1/field[@id='individual']" position="replace">
+                <div invisible="is_company" class="o_row" style="gap: 8px; width: 100%;">
+                    <field name="first_name" placeholder="Nombre" required="not is_company"/>
+                    <field name="last_name" placeholder="Apellidos" required="not is_company"/>
+                </div>
+            </xpath>
+            <xpath expr="//group" position="replace">
+                <group>
+                    <field name="trade_name" invisible="not is_company" placeholder="Marca comercial"/>
+                    <field name="function" string="Puesto" invisible="is_company"/>
+                    <field name="email" widget="email" context="{'gravatar_image': True}"/>
+                    <field name="phone" widget="phone" options="{'enable_sms': false}"/>
+                    <field name="mobile" widget="phone" options="{'enable_sms': false}"/>
+                    <field name="preferred_contact_method" invisible="is_company"/>
+                    <field name="vat" invisible="not is_company" placeholder="CIF/NIF"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_partner_address_form_crm_universal" model="ir.ui.view">
+        <field name="name">res.partner.address.form.crm.universal</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_address_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@class='o_address_format']/field[@name='street']" position="after">
+                <field name="street_number" placeholder="Nº" class="o_address_street"/>
+            </xpath>
+            <xpath expr="//group[1]/group[1]" position="inside">
+                <field name="available_location_ids" invisible="1"/>
+                <field name="location_id" string="Ubicación" domain="[('id', 'in', available_location_ids)]" options="{'no_create': True}"/>
+            </xpath>
+        </field>
     </record>
 
 </odoo>

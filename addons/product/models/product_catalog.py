@@ -9,7 +9,27 @@ class Product(models.Model):
     _inherit = "product.template"
 
     @api.model
+    def _default_21_tax(self, tax_use):
+        if not self._is_model_available("account.tax"):
+            return False
+        tax = self.env["account.tax"].search(
+            [
+                ("type_tax_use", "=", tax_use),
+                ("amount_type", "=", "percent"),
+                ("amount", "=", 21.0),
+                "|",
+                ("company_id", "=", False),
+                ("company_id", "=", self.env.company.id),
+            ],
+            limit=1,
+        )
+        return tax or False
+
+    @api.model
     def _default_sale_taxes(self):
+        tax_21 = self._default_21_tax("sale")
+        if tax_21:
+            return tax_21
         if not self._is_model_available("account.tax"):
             return False
         companies = self.env.companies
@@ -22,6 +42,9 @@ class Product(models.Model):
 
     @api.model
     def _default_purchase_taxes(self):
+        tax_21 = self._default_21_tax("purchase")
+        if tax_21:
+            return tax_21
         if not self._is_model_available("account.tax"):
             return False
         companies = self.env.companies
@@ -111,9 +134,11 @@ class Product(models.Model):
     product_mode = fields.Selection(
         selection=[("single", "Producto unico"), ("pieces", "Por piezas")],
         string="Tipo de producto",
-        default="pieces",
+        default="single",
         required=True,
     )
+    list_price = fields.Float(default=0.0)
+    standard_price = fields.Float(default=0.0)
     product_business_type = fields.Selection(
         selection=[
             ("goods", "Bienes"),
@@ -259,6 +284,33 @@ class Product(models.Model):
         self.ensure_one()
         return self.stock_location_id or self._default_stock_location_id()
 
+    @api.model
+    def _get_positive_rounding(self, rounding_value):
+        try:
+            rounding = float(rounding_value or 0.0)
+        except (TypeError, ValueError):
+            rounding = 0.0
+        return rounding if rounding > 0.0 else 0.01
+
+    @api.model
+    def _get_available_quantity_safe(self, quant_model, variant, location):
+        """Cantidad disponible robusta ante UoM mal configuradas (rounding <= 0)."""
+        if not variant or not location:
+            return 0.0
+        try:
+            return quant_model._get_available_quantity(variant, location, strict=True)
+        except AssertionError:
+            quants = quant_model.search(
+                [
+                    ("product_id", "=", variant.id),
+                    ("location_id", "=", location.id),
+                ]
+            )
+            return sum(
+                (quant.quantity or 0.0) - (getattr(quant, "reserved_quantity", 0.0) or 0.0)
+                for quant in quants
+            )
+
     def _get_single_variant(self):
         self.ensure_one()
         if self.product_variant_count > 1:
@@ -330,8 +382,8 @@ class Product(models.Model):
                 product.stock_qty = 0.0
                 continue
             variant = product.product_variant_id
-            product.stock_qty = quant_model._get_available_quantity(
-                variant, location, strict=True
+            product.stock_qty = product._get_available_quantity_safe(
+                quant_model, variant, location
             )
 
     def _inverse_stock_qty(self):
@@ -345,9 +397,9 @@ class Product(models.Model):
             variant = product._get_single_variant()
             target_qty = product.stock_qty
             # Obtener precision_rounding seguro
-            precision_rounding = getattr(variant.uom_id, "rounding", None)
-            if not precision_rounding or precision_rounding <= 0:
-                precision_rounding = 0.01
+            precision_rounding = product._get_positive_rounding(
+                getattr(variant.uom_id, "rounding", None)
+            )
             if product.product_mode == "single" and float_compare(
                 target_qty,
                 1.0,
@@ -371,8 +423,8 @@ class Product(models.Model):
                 )
             if "is_storable" in product._fields:
                 product.is_storable = True
-            current_qty = quant_model._get_available_quantity(
-                variant, location, strict=True
+            current_qty = product._get_available_quantity_safe(
+                quant_model, variant, location
             )
             delta_qty = target_qty - current_qty
             if float_is_zero(delta_qty, precision_rounding=precision_rounding):
@@ -420,26 +472,53 @@ class Product(models.Model):
             product.sale_tax_amount = sale_vals["tax_amount"]
             product.sale_total = sale_vals["total"]
 
+    def _safe_percent_from_taxes(self, taxes, tax_use):
+        """Devuelve suma de impuestos % y evita romper si hay registros temporales en formulario."""
+        percent = 0.0
+        try:
+            percent = sum(
+                tax.amount
+                for tax in taxes
+                if getattr(tax, "amount_type", False) == "percent"
+            )
+        except Exception:
+            percent = 0.0
+
+        if percent:
+            return percent
+
+        default_tax = self._default_21_tax(tax_use)
+        return float(getattr(default_tax, "amount", 0.0) or 0.0)
+
     @api.depends(
         "standard_price",
         "list_price",
         "purchase_tax_amount",
         "sale_tax_amount",
+        "supplier_taxes_id",
+        "taxes_id",
     )
     def _compute_tax_percentages(self):
         for product in self:
             purchase_base = product.standard_price or 0.0
             sale_base = product.list_price or 0.0
 
+            purchase_percent_from_taxes = product._safe_percent_from_taxes(
+                product.supplier_taxes_id, "purchase"
+            )
+            sale_percent_from_taxes = product._safe_percent_from_taxes(
+                product.taxes_id, "sale"
+            )
+
             product.purchase_tax_percent = (
                 (product.purchase_tax_amount / purchase_base) * 100.0
                 if purchase_base
-                else 0.0
+                else purchase_percent_from_taxes
             )
             product.sale_tax_percent = (
                 (product.sale_tax_amount / sale_base) * 100.0
                 if sale_base
-                else 0.0
+                else sale_percent_from_taxes
             )
 
     @api.onchange("supplier_taxes_id", "taxes_id")
@@ -490,7 +569,7 @@ class Product(models.Model):
                 [
                     ("product_id.product_tmpl_id", "=", product.id),
                     ("display_type", "=", False),
-                    ("state", "in", ("purchase", "done")),
+                    ("state", "in", ("to approve", "purchase", "done")),
                 ],
                 order="id desc",
                 limit=80,
@@ -553,6 +632,57 @@ class Product(models.Model):
             ):
                 location = self.env["stock.location"].browse(vals["stock_location_id"])
                 vals["company_id"] = location.company_id.id or self.env.company.id
+
+            # Limpiar Many2many para evitar comandos inválidos/objetos temporales sin ID
+            for many2many_field in ("supplier_taxes_id", "taxes_id"):
+                if many2many_field not in vals:
+                    continue
+
+                raw_value = vals[many2many_field]
+                if not raw_value:
+                    vals[many2many_field] = False
+                    continue
+
+                valid_ids = []
+
+                if hasattr(raw_value, "ids"):
+                    valid_ids.extend([rid for rid in raw_value.ids if isinstance(rid, int) and rid > 0])
+                else:
+                    commands = raw_value if isinstance(raw_value, (list, tuple)) else [raw_value]
+                    for cmd in commands:
+                        if hasattr(cmd, "id"):
+                            if isinstance(cmd.id, int) and cmd.id > 0:
+                                valid_ids.append(cmd.id)
+                            continue
+
+                        if isinstance(cmd, int):
+                            if cmd > 0:
+                                valid_ids.append(cmd)
+                            continue
+
+                        if not isinstance(cmd, (list, tuple)) or not cmd:
+                            continue
+
+                        command_type = cmd[0]
+                        if command_type in (1, 2, 3, 4):
+                            if len(cmd) >= 2:
+                                record_id = cmd[1]
+                                if hasattr(record_id, "id"):
+                                    record_id = record_id.id
+                                if isinstance(record_id, int) and record_id > 0:
+                                    valid_ids.append(record_id)
+                        elif command_type == 6:
+                            if len(cmd) >= 3 and isinstance(cmd[2], (list, tuple)):
+                                for record_id in cmd[2]:
+                                    if hasattr(record_id, "id"):
+                                        record_id = record_id.id
+                                    if isinstance(record_id, int) and record_id > 0:
+                                        valid_ids.append(record_id)
+
+                # Mantener SOLO comandos M2M válidos para create: [(6, 0, [ids...])]
+                clean_ids = list(dict.fromkeys(valid_ids))
+                vals[many2many_field] = [(6, 0, clean_ids)] if clean_ids else False
+
         products = super().create(vals_list)
         products._sync_pending_pieces()
         products._apply_piece_total_price()
@@ -560,7 +690,6 @@ class Product(models.Model):
         return products
 
     def write(self, vals):
-        # No tocar is_storable, es compute
         if (
             vals.get("stock_location_id")
             and not vals.get("company_id")
@@ -612,7 +741,7 @@ class Product(models.Model):
                 and float_compare(
                     product.stock_qty,
                     1.0,
-                    precision_rounding=product.uom_id.rounding,
+                    precision_rounding=product._get_positive_rounding(product.uom_id.rounding),
                 ) > 0
             ):
                 raise ValidationError(
@@ -715,6 +844,11 @@ class Product(models.Model):
         if not lines:
             return self._empty_history_html(empty_message)
 
+        show_variant_info = any(
+            getattr(line.product_id.product_tmpl_id, "product_variant_count", 0) > 1
+            for line in lines
+            if getattr(line, "product_id", False)
+        )
         items = []
         subtotal_total = 0.0
         tax_total = 0.0
@@ -740,10 +874,15 @@ class Product(models.Model):
             date_label = date_value.strftime("%d/%m/%Y") if date_value else "Sin fecha"
             partner_label = escape(partner_name or "Sin contacto")
             currency_label = escape(currency.name or "")
+            variant_line = (
+                f"<strong>Variante:</strong> {escape(line.product_id.display_name or line.product_id.name or 'N/A')}<br/>"
+                if show_variant_info
+                else ""
+            )
             items.append(
                 "<li class='mb-2'>"
                 f"<strong>{escape(date_label)}</strong> - {partner_label}<br/>"
-                f"Variante: {escape(line.product_id.display_name or line.product_id.name or 'N/A')}<br/>"
+                f"{variant_line}"
                 f"{quantity:.2f} x {line.price_unit:.2f} {currency_label}<br/>"
                 f"Base: {subtotal:.2f} {currency_label} | Impuesto: {tax_amount:.2f} {currency_label} | Total: {total:.2f} {currency_label}"
                 "</li>"
