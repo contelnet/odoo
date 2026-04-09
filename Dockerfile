@@ -10,4 +10,4 @@ COPY ./helpdesk /mnt/extra-addons
 
 USER odoo
 
-RUN echo "list_db = False" >> /etc/odoo/odoo.conf
+#RUN echo "list_db = False" >> /etc/odoo/odoo.conf
