@@ -14,6 +14,38 @@ class Partner(models.Model):
     _name = 'res.partner'
     _inherit = 'res.partner'
 
+    def init(self):
+        """Autocura de esquema para evitar caídas si faltan columnas nuevas en servidor."""
+        self.env.cr.execute(
+            """
+            ALTER TABLE res_partner
+                ADD COLUMN IF NOT EXISTS contract_it_devices_laptops integer,
+                ADD COLUMN IF NOT EXISTS contract_it_devices_desktops integer,
+                ADD COLUMN IF NOT EXISTS contract_it_devices_software integer
+            """
+        )
+        self.env.cr.execute(
+            """
+            UPDATE res_partner
+               SET contract_it_devices_laptops = 0
+             WHERE contract_it_devices_laptops IS NULL
+            """
+        )
+        self.env.cr.execute(
+            """
+            UPDATE res_partner
+               SET contract_it_devices_desktops = 0
+             WHERE contract_it_devices_desktops IS NULL
+            """
+        )
+        self.env.cr.execute(
+            """
+            UPDATE res_partner
+               SET contract_it_devices_software = 0
+             WHERE contract_it_devices_software IS NULL
+            """
+        )
+
     centralita_number = fields.Char(string="Número de Centralita")
     trade_name = fields.Char(
         string="Marca Comercial",
