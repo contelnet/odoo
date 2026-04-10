@@ -187,26 +187,17 @@
 
                     <notebook>
                         <page string="Ventas">
-                            <group col="2">
-                                <group string="Historial de ventas">
-                                    <field name="sale_history_html" widget="html" nolabel="1" />
-                                </group>
-                                <group string="Historial de compras" groups="base.group_user">
-                                    <field name="purchase_history_html" widget="html" nolabel="1" />
-                                </group>
+                            <group string="Historial de ventas">
+                                <field name="sale_history_html" widget="html" nolabel="1" />
                             </group>
-                            <group string="Variantes del producto">
-                                <field name="product_variant_ids" nolabel="1" readonly="1">
-                                    <list string="Variantes" create="0" delete="0" edit="0">
-                                        <field name="display_name" string="Variante"/>
-                                        <field name="default_code" string="Part Number" optional="show"/>
-                                        <field name="barcode" optional="show"/>
-                                        <field name="list_price" string="Precio venta"/>
-                                        <field name="standard_price" string="Precio compra" groups="base.group_user"/>
-                                    </list>
-                                </field>
+                        </page>
+                        <page string="Compras" groups="base.group_user">
+                            <group string="Historial de compras">
+                                <field name="purchase_history_html" widget="html" nolabel="1" />
                             </group>
-                            <group string="Seriales del producto" invisible="not has_serial_number">
+                        </page>
+                        <page string="Seriales" invisible="not has_serial_number">
+                            <group string="Seriales del producto">
                                 <field name="serial_number_ids" nolabel="1">
                                     <list string="Numeros de serie" delete="1">
                                         <field name="name" string="Numero de serie" />
@@ -219,6 +210,39 @@
                 </sheet>
                 <chatter />
             </form>
+        </field>
+    </record>
+
+    <record id="product_view_template_catalog_form_history_tabs_fix" model="ir.ui.view">
+        <field name="name">product.template.catalog.form.history.tabs.fix</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_view_template_catalog_form" />
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="replace">
+                <notebook>
+                    <page string="Ventas">
+                        <group string="Historial de ventas">
+                            <field name="sale_history_html" widget="html" nolabel="1" />
+                        </group>
+                    </page>
+                    <page string="Compras" groups="base.group_user">
+                        <group string="Historial de compras">
+                            <field name="purchase_history_html" widget="html" nolabel="1" />
+                        </group>
+                    </page>
+                    <page string="Seriales" invisible="not has_serial_number">
+                        <group string="Seriales del producto">
+                            <field name="serial_number_ids" nolabel="1">
+                                <list string="Numeros de serie" delete="1">
+                                    <field name="name" string="Numero de serie" />
+                                    <field name="create_date" string="Fecha de alta" readonly="1" optional="show" />
+                                </list>
+                            </field>
+                        </group>
+                    </page>
+                </notebook>
+            </xpath>
         </field>
     </record>
 

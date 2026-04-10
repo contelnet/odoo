@@ -282,7 +282,11 @@ class Product(models.Model):
 
     def _get_stock_location(self):
         self.ensure_one()
-        return self.stock_location_id or self._default_stock_location_id()
+        location = self.stock_location_id
+        if self._is_valid_stock_location_record(location):
+            return location
+        fallback_location = self._default_stock_location_id()
+        return fallback_location if self._is_valid_stock_location_record(fallback_location) else False
 
     @api.model
     def _get_positive_rounding(self, rounding_value):
@@ -293,13 +297,24 @@ class Product(models.Model):
         return rounding if rounding > 0.0 else 0.01
 
     @api.model
+    def _is_valid_stock_location_record(self, location):
+        if not location:
+            return False
+        if getattr(location, "_name", None) != "stock.location":
+            return False
+        exists_method = getattr(location, "exists", None)
+        if callable(exists_method):
+            return bool(location.exists())
+        return False
+
+    @api.model
     def _get_available_quantity_safe(self, quant_model, variant, location):
         """Cantidad disponible robusta ante UoM mal configuradas (rounding <= 0)."""
-        if not variant or not location:
+        if not variant or not self._is_valid_stock_location_record(location):
             return 0.0
         try:
             return quant_model._get_available_quantity(variant, location, strict=True)
-        except AssertionError:
+        except (AssertionError, AttributeError):
             quants = quant_model.search(
                 [
                     ("product_id", "=", variant.id),
@@ -378,13 +393,20 @@ class Product(models.Model):
         quant_model = self.env["stock.quant"].sudo()
         for product in self:
             location = product._get_stock_location()
-            if not product.id or not location or not product.is_storable:
+            if (
+                not product.id
+                or not product.is_storable
+                or not product._is_valid_stock_location_record(location)
+            ):
                 product.stock_qty = 0.0
                 continue
             variant = product.product_variant_id
-            product.stock_qty = product._get_available_quantity_safe(
-                quant_model, variant, location
-            )
+            try:
+                product.stock_qty = product._get_available_quantity_safe(
+                    quant_model, variant, location
+                )
+            except Exception:
+                product.stock_qty = 0.0
 
     def _inverse_stock_qty(self):
         if not self._is_model_available("stock.quant"):
@@ -392,7 +414,7 @@ class Product(models.Model):
         quant_model = self.env["stock.quant"].sudo()
         for product in self:
             location = product._get_stock_location()
-            if not location:
+            if not product._is_valid_stock_location_record(location):
                 continue
             variant = product._get_single_variant()
             target_qty = product.stock_qty
@@ -554,49 +576,54 @@ class Product(models.Model):
                 )
 
     def _compute_histories(self):
-        purchase_lines_model = self.env["purchase.order.line"].sudo() if self._is_model_available("purchase.order.line") else False
-        sale_lines_model = self.env["sale.order.line"].sudo() if self._is_model_available("sale.order.line") else False
+        has_purchase_model = self._is_model_available("purchase.order.line")
+        has_sale_model = self._is_model_available("sale.order.line")
+        purchase_lines_model = self.env["purchase.order.line"].sudo() if has_purchase_model else False
+        sale_lines_model = self.env["sale.order.line"].sudo() if has_sale_model else False
         for product in self:
-            if not purchase_lines_model or not sale_lines_model:
-                product.purchase_history_html = product._empty_history_html("Sin compras registradas.")
-                product.sale_history_html = product._empty_history_html("Sin ventas registradas.")
-                continue
             if not product.id:
                 product.purchase_history_html = product._empty_history_html("Sin compras registradas.")
                 product.sale_history_html = product._empty_history_html("Sin ventas registradas.")
                 continue
-            purchase_lines = purchase_lines_model.search(
-                [
-                    ("product_id.product_tmpl_id", "=", product.id),
-                    ("display_type", "=", False),
-                    ("state", "in", ("to approve", "purchase", "done")),
-                ],
-                order="id desc",
-                limit=80,
-            )
-            purchase_lines = purchase_lines.sorted(
-                key=lambda line: (line.date_order or fields.Datetime.from_string("1970-01-01 00:00:00"), line.id),
-                reverse=True,
-            )[:10]
-            sale_lines = sale_lines_model.search(
-                [
-                    ("product_id.product_tmpl_id", "=", product.id),
-                    ("display_type", "=", False),
-                    ("state", "in", ("sale", "done")),
-                ],
-                order="id desc",
-                limit=80,
-            )
-            sale_lines = sale_lines.sorted(
-                key=lambda line: (line.order_id.date_order or fields.Datetime.from_string("1970-01-01 00:00:00"), line.id),
-                reverse=True,
-            )[:10]
-            product.purchase_history_html = product._format_history_html(
-                purchase_lines, "Sin compras registradas."
-            )
-            product.sale_history_html = product._format_history_html(
-                sale_lines, "Sin ventas registradas."
-            )
+            if has_purchase_model:
+                purchase_lines = purchase_lines_model.search(
+                    [
+                        ("product_id.product_tmpl_id", "=", product.id),
+                        ("display_type", "=", False),
+                        ("state", "in", ("draft", "sent", "to approve", "purchase", "done", "cancel")),
+                    ],
+                    order="id desc",
+                    limit=80,
+                )
+                purchase_lines = purchase_lines.sorted(
+                    key=lambda line: (line.date_order or fields.Datetime.from_string("1970-01-01 00:00:00"), line.id),
+                    reverse=True,
+                )[:10]
+                product.purchase_history_html = product._format_history_html(
+                    purchase_lines, "Sin compras registradas."
+                )
+            else:
+                product.purchase_history_html = product._empty_history_html("Sin compras registradas.")
+
+            if has_sale_model:
+                sale_lines = sale_lines_model.search(
+                    [
+                        ("product_id.product_tmpl_id", "=", product.id),
+                        ("display_type", "=", False),
+                        ("state", "in", ("draft", "sent", "sale", "done", "cancel")),
+                    ],
+                    order="id desc",
+                    limit=80,
+                )
+                sale_lines = sale_lines.sorted(
+                    key=lambda line: (line.order_id.date_order or fields.Datetime.from_string("1970-01-01 00:00:00"), line.id),
+                    reverse=True,
+                )[:10]
+                product.sale_history_html = product._format_history_html(
+                    sale_lines, "Sin ventas registradas."
+                )
+            else:
+                product.sale_history_html = product._empty_history_html("Sin ventas registradas.")
 
     def action_save_product_record(self):
         self.ensure_one()

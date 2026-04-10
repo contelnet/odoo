@@ -1,4 +1,4 @@
-from odoo import fields, models
+from odoo import api, fields, models
 
 
 class ProductTemplatePiece(models.Model):
@@ -25,3 +25,12 @@ class ProductTemplatePiece(models.Model):
         ondelete="cascade",
     )
     create_date = fields.Datetime(string="Fecha de alta", readonly=True)
+    display_name = fields.Char(
+        string="Nombre para mostrar",
+        compute="_compute_display_name",
+    )
+
+    @api.depends("name")
+    def _compute_display_name(self):
+        for piece in self:
+            piece.display_name = piece.name or ""
