@@ -76,7 +76,11 @@ class Product(models.Model):
 
     @api.model
     def _is_model_available(self, model_name):
-        return model_name in self.env.registry
+        try:
+            model = self.env.get(model_name)
+        except Exception:
+            return False
+        return bool(model and getattr(model, "_name", None) == model_name)
 
     def init(self):
         """Autocura de esquema para instalaciones donde el upgrade de módulo quedó a medias.
@@ -586,7 +590,7 @@ class Product(models.Model):
                 product.sale_history_html = product._empty_history_html("Sin ventas registradas.")
                 continue
             if has_purchase_model:
-                purchase_lines = purchase_lines_model.search(
+                purchase_anchor_lines = purchase_lines_model.search(
                     [
                         ("product_id.product_tmpl_id", "=", product.id),
                         ("display_type", "=", False),
@@ -595,10 +599,28 @@ class Product(models.Model):
                     order="id desc",
                     limit=80,
                 )
-                purchase_lines = purchase_lines.sorted(
-                    key=lambda line: (line.date_order or fields.Datetime.from_string("1970-01-01 00:00:00"), line.id),
+
+                purchase_orders = purchase_anchor_lines.mapped("order_id").sorted(
+                    key=lambda order: (order.date_order or fields.Datetime.from_string("1970-01-01 00:00:00"), order.id),
                     reverse=True,
                 )[:10]
+
+                purchase_lines = purchase_lines_model.search(
+                    [
+                        ("order_id", "in", purchase_orders.ids),
+                        ("display_type", "=", False),
+                    ],
+                    order="id desc",
+                    limit=300,
+                ).sorted(
+                    key=lambda line: (
+                        line.order_id.date_order or fields.Datetime.from_string("1970-01-01 00:00:00"),
+                        line.order_id.id,
+                        line.id,
+                    ),
+                    reverse=True,
+                )
+
                 product.purchase_history_html = product._format_history_html(
                     purchase_lines, "Sin compras registradas."
                 )
@@ -651,6 +673,7 @@ class Product(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        install_mode = bool(self.env.context.get("install_mode"))
         for vals in vals_list:
             if (
                 vals.get("stock_location_id")
@@ -661,6 +684,11 @@ class Product(models.Model):
                 vals["company_id"] = location.company_id.id or self.env.company.id
 
             # Limpiar Many2many para evitar comandos inválidos/objetos temporales sin ID
+            # Importante: en install/upgrade Odoo usa placeholders internos (p.ej. _unknown)
+            # durante precompute; no debemos normalizar esos comandos ahí.
+            if install_mode:
+                continue
+
             for many2many_field in ("supplier_taxes_id", "taxes_id"):
                 if many2many_field not in vals:
                     continue
@@ -672,39 +700,43 @@ class Product(models.Model):
 
                 valid_ids = []
 
-                if hasattr(raw_value, "ids"):
-                    valid_ids.extend([rid for rid in raw_value.ids if isinstance(rid, int) and rid > 0])
-                else:
-                    commands = raw_value if isinstance(raw_value, (list, tuple)) else [raw_value]
-                    for cmd in commands:
-                        if hasattr(cmd, "id"):
-                            if isinstance(cmd.id, int) and cmd.id > 0:
-                                valid_ids.append(cmd.id)
-                            continue
+                try:
+                    if hasattr(raw_value, "ids"):
+                        valid_ids.extend([rid for rid in raw_value.ids if isinstance(rid, int) and rid > 0])
+                    else:
+                        commands = raw_value if isinstance(raw_value, (list, tuple)) else [raw_value]
+                        for cmd in commands:
+                            if hasattr(cmd, "id"):
+                                if isinstance(cmd.id, int) and cmd.id > 0:
+                                    valid_ids.append(cmd.id)
+                                continue
 
-                        if isinstance(cmd, int):
-                            if cmd > 0:
-                                valid_ids.append(cmd)
-                            continue
+                            if isinstance(cmd, int):
+                                if cmd > 0:
+                                    valid_ids.append(cmd)
+                                continue
 
-                        if not isinstance(cmd, (list, tuple)) or not cmd:
-                            continue
+                            if not isinstance(cmd, (list, tuple)) or not cmd:
+                                continue
 
-                        command_type = cmd[0]
-                        if command_type in (1, 2, 3, 4):
-                            if len(cmd) >= 2:
-                                record_id = cmd[1]
-                                if hasattr(record_id, "id"):
-                                    record_id = record_id.id
-                                if isinstance(record_id, int) and record_id > 0:
-                                    valid_ids.append(record_id)
-                        elif command_type == 6:
-                            if len(cmd) >= 3 and isinstance(cmd[2], (list, tuple)):
-                                for record_id in cmd[2]:
+                            command_type = cmd[0]
+                            if command_type in (1, 2, 3, 4):
+                                if len(cmd) >= 2:
+                                    record_id = cmd[1]
                                     if hasattr(record_id, "id"):
                                         record_id = record_id.id
                                     if isinstance(record_id, int) and record_id > 0:
                                         valid_ids.append(record_id)
+                            elif command_type == 6:
+                                if len(cmd) >= 3 and isinstance(cmd[2], (list, tuple)):
+                                    for record_id in cmd[2]:
+                                        if hasattr(record_id, "id"):
+                                            record_id = record_id.id
+                                        if isinstance(record_id, int) and record_id > 0:
+                                            valid_ids.append(record_id)
+                except Exception:
+                    # Si llega un formato inesperado, dejar el valor original.
+                    continue
 
                 # Mantener SOLO comandos M2M válidos para create: [(6, 0, [ids...])]
                 clean_ids = list(dict.fromkeys(valid_ids))
@@ -871,6 +903,10 @@ class Product(models.Model):
         if not lines:
             return self._empty_history_html(empty_message)
 
+        is_purchase_history = lines and lines[0]._name == "purchase.order.line"
+        if is_purchase_history:
+            return self._format_purchase_history_html(lines)
+
         show_variant_info = any(
             getattr(line.product_id.product_tmpl_id, "product_variant_count", 0) > 1
             for line in lines
@@ -923,6 +959,113 @@ class Product(models.Model):
             "</div>"
         )
         return f"{totals_html}<ul class='mb-0'>{''.join(items)}</ul>"
+
+    def _format_purchase_history_html(self, lines):
+        if not lines:
+            return self._empty_history_html("Sin compras registradas.")
+
+        lines_by_order = {}
+        sorted_order_ids = []
+        for line in lines:
+            order = line.order_id
+            if not order:
+                continue
+            if order.id not in lines_by_order:
+                lines_by_order[order.id] = []
+                sorted_order_ids.append(order.id)
+            lines_by_order[order.id].append(line)
+
+        if not sorted_order_ids:
+            return self._empty_history_html("Sin compras registradas.")
+
+        overall_base = 0.0
+        overall_canon = 0.0
+        overall_tax = 0.0
+        overall_total = 0.0
+        global_currency_label = ""
+        order_blocks = []
+
+        for order_id in sorted_order_ids:
+            order_lines = lines_by_order[order_id]
+            if not order_lines:
+                continue
+
+            order = order_lines[0].order_id
+            date_value = order.date_order
+            date_label = date_value.strftime("%d/%m/%Y") if date_value else "Sin fecha"
+            partner_name = escape(order.partner_id.display_name or "Sin contacto")
+
+            line_rows = []
+            order_base = 0.0
+            order_canon = 0.0
+            order_tax = 0.0
+            order_total = 0.0
+            order_currency_label = ""
+
+            sorted_order_lines = sorted(
+                order_lines,
+                key=lambda line: (line.id,),
+                reverse=False,
+            )
+
+            for line in sorted_order_lines:
+                quantity = line.product_qty or 0.0
+                unit_price = line.price_unit or 0.0
+                subtotal = line.price_subtotal or 0.0
+                total = line.price_total or 0.0
+                tax_amount = total - subtotal
+
+                canon_unit = line.product_id.product_tmpl_id.canon_amount or 0.0
+                canon_total = canon_unit * quantity
+                final_total = total + canon_total
+
+                currency = line.currency_id or line.company_id.currency_id
+                currency_label = escape(currency.name or "")
+                order_currency_label = currency_label
+                if not global_currency_label:
+                    global_currency_label = currency_label
+
+                product_name = escape(line.product_id.display_name or line.name or "Producto")
+
+                order_base += subtotal
+                order_canon += canon_total
+                order_tax += tax_amount
+                order_total += final_total
+
+                line_rows.append(
+                    "<li class='mb-2'>"
+                    f"<strong>{product_name}</strong><br/>"
+                    f"{quantity:.2f} x {unit_price:.2f} {currency_label}<br/>"
+                    f"Base: {subtotal:.2f} {currency_label} | Canon: {canon_total:.2f} {currency_label} | Impuesto: {tax_amount:.2f} {currency_label} | Total: {final_total:.2f} {currency_label}"
+                    "</li>"
+                )
+
+            overall_base += order_base
+            overall_canon += order_canon
+            overall_tax += order_tax
+            overall_total += order_total
+
+            order_blocks.append(
+                "<div class='mb-3'>"
+                f"<strong>{escape(date_label)}</strong> - {partner_name}<br/>"
+                f"<ul class='mb-2'>{''.join(line_rows)}</ul>"
+                f"<strong>Total base pedido:</strong> {order_base:.2f} {order_currency_label}"
+                f"<br/><strong>Total canon pedido:</strong> {order_canon:.2f} {order_currency_label}"
+                f"<br/><strong>Total impuestos pedido:</strong> {order_tax:.2f} {order_currency_label}"
+                f"<br/><strong>Total pedido:</strong> {order_total:.2f} {order_currency_label}"
+                "</div>"
+            )
+
+        overall_totals_html = (
+            "<div class='mb-3'>"
+            f"<strong>Total base:</strong> {overall_base:.2f} {global_currency_label}"
+            f"<br/><strong>Total canon:</strong> {overall_canon:.2f} {global_currency_label}"
+            f"<br/><strong>Total impuestos:</strong> {overall_tax:.2f} {global_currency_label}"
+            f"<br/><strong>Total final:</strong> {overall_total:.2f} {global_currency_label}"
+            "</div>"
+        )
+
+        return f"{overall_totals_html}{''.join(order_blocks)}"
 
     @staticmethod
     def _empty_history_html(message):
