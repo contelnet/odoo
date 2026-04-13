@@ -6,7 +6,7 @@ from .evented import patch_evented
 
 
 def set_timezone_utc():
-    os.environ['TZ'] = 'UTC'  # Set the timezone
+    os.environ['TZ'] = os.environ.get('TZ', 'UTC') 
     if hasattr(time, 'tzset'):
         time.tzset()
 

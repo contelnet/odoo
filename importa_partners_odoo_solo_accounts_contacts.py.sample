@@ -3,7 +3,7 @@ import pandas as pd
 import xmlrpc.client
 
 # Configuración de conexión Odoo
-url = 'https://odoo.contelnet.com'
+url = ''
 bd = ''
 usuario = ''
 password = ''
@@ -74,4 +74,4 @@ for _, row in contactos.iterrows():
 
     models.execute_kw(bd, uid, password, 'res.partner', 'create', [vals])
 
-print('¡Importación completada! Revisa Odoo para ver los datos.')
+print('¡Importación completada!')

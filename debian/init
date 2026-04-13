@@ -22,6 +22,7 @@ LOGFILE=/var/log/odoo/odoo-server.log
 PIDFILE=/var/run/${NAME}.pid
 USER=odoo
 export LOGNAME=$USER
+export TZ=Europe/Madrid
 
 test -x $DAEMON || exit 0
 set -e

@@ -6,6 +6,7 @@ After=network.target
 Type=simple
 User=odoo
 Group=odoo
+Environment=TZ=Europe/Madrid
 ExecStart=/usr/bin/odoo --config /etc/odoo/odoo.conf --logfile /var/log/odoo/odoo-server.log
 KillMode=mixed
 
