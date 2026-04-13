@@ -234,6 +234,10 @@
                                     <div>
                                         <field name="contract_office365" widget="boolean_toggle" nolabel="1"/>
                                     </div>
+                                    <group string="Licencias antivirus" invisible="not contract_antivirus" col="2" colspan="2" class="o_contract_devices_group">
+                                        <label for="contract_antivirus_licenses" string="Nº licencias antivirus"/>
+                                        <field name="contract_antivirus_licenses" nolabel="1"/>
+                                    </group>
                                     <group string="Dispositivos incluidos" invisible="not contract_total_it_maintenance" col="2" colspan="2" class="o_contract_devices_group">
                                         <label for="contract_it_devices_laptops" string="Nº portátiles"/>
                                         <field name="contract_it_devices_laptops" nolabel="1"/>

@@ -30,6 +30,7 @@ class Partner(models.Model):
                 ADD COLUMN IF NOT EXISTS contract_vpn boolean,
                 ADD COLUMN IF NOT EXISTS contract_acronis boolean,
                 ADD COLUMN IF NOT EXISTS contract_antivirus boolean,
+                ADD COLUMN IF NOT EXISTS contract_antivirus_licenses integer,
                 ADD COLUMN IF NOT EXISTS contract_office365 boolean,
                 ADD COLUMN IF NOT EXISTS contract_incidents_cobro boolean
             """
@@ -67,6 +68,13 @@ class Partner(models.Model):
             UPDATE res_partner
                SET contract_it_devices_software = 0
              WHERE contract_it_devices_software IS NULL
+            """
+        )
+        self.env.cr.execute(
+            """
+            UPDATE res_partner
+               SET contract_antivirus_licenses = 0
+             WHERE contract_antivirus_licenses IS NULL
             """
         )
 
@@ -207,6 +215,10 @@ class Partner(models.Model):
     contract_vpn = fields.Boolean(string="Mantenimiento VPN", default=False)
     contract_acronis = fields.Boolean(string="Acronis", default=False)
     contract_antivirus = fields.Boolean(string="Antivirus", default=False)
+    contract_antivirus_licenses = fields.Integer(
+        string="Nº licencias antivirus",
+        default=0,
+    )
     contract_office365 = fields.Boolean(string="Office 365", default=False)
     contract_extra_option_ids = fields.Many2many(
         'crm.contract.option',
