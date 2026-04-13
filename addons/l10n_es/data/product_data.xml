@@ -5,6 +5,7 @@
         <field name="default_code">DUA21</field>
         <field name="categ_id" ref="product.product_category_all"/>
         <field name="type">service</field>
+        <field name="active" eval="False"/>
         <field name="sale_ok" eval="False"/>
         <field name="purchase_ok" eval="True"/>
     </record>
@@ -13,6 +14,7 @@
         <field name="default_code">DUA10</field>
         <field name="categ_id" ref="product.product_category_all"/>
         <field name="type">service</field>
+        <field name="active" eval="False"/>
         <field name="sale_ok" eval="False"/>
         <field name="purchase_ok" eval="True"/>
     </record>
@@ -21,6 +23,7 @@
         <field name="default_code">DUA4</field>
         <field name="categ_id" ref="product.product_category_all"/>
         <field name="type">service</field>
+        <field name="active" eval="False"/>
         <field name="sale_ok" eval="False"/>
         <field name="purchase_ok" eval="True"/>
     </record>

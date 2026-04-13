@@ -19,9 +19,33 @@ class Partner(models.Model):
         self.env.cr.execute(
             """
             ALTER TABLE res_partner
+                ADD COLUMN IF NOT EXISTS contract_it_bonus boolean,
+                ADD COLUMN IF NOT EXISTS contract_total_it_maintenance boolean,
                 ADD COLUMN IF NOT EXISTS contract_it_devices_laptops integer,
+                ADD COLUMN IF NOT EXISTS contract_it_devices_laptop integer,
                 ADD COLUMN IF NOT EXISTS contract_it_devices_desktops integer,
-                ADD COLUMN IF NOT EXISTS contract_it_devices_software integer
+                ADD COLUMN IF NOT EXISTS contract_it_devices_software integer,
+                ADD COLUMN IF NOT EXISTS contract_physical_centralita boolean,
+                ADD COLUMN IF NOT EXISTS contract_cloud_centralita boolean,
+                ADD COLUMN IF NOT EXISTS contract_vpn boolean,
+                ADD COLUMN IF NOT EXISTS contract_acronis boolean,
+                ADD COLUMN IF NOT EXISTS contract_antivirus boolean,
+                ADD COLUMN IF NOT EXISTS contract_office365 boolean,
+                ADD COLUMN IF NOT EXISTS contract_incidents_cobro boolean
+            """
+        )
+        self.env.cr.execute(
+            """
+            UPDATE res_partner
+               SET contract_it_devices_laptops = COALESCE(contract_it_devices_laptops, contract_it_devices_laptop, 0)
+             WHERE contract_it_devices_laptops IS NULL
+            """
+        )
+        self.env.cr.execute(
+            """
+            UPDATE res_partner
+               SET contract_it_devices_laptop = COALESCE(contract_it_devices_laptop, contract_it_devices_laptops, 0)
+             WHERE contract_it_devices_laptop IS NULL
             """
         )
         self.env.cr.execute(
@@ -158,6 +182,12 @@ class Partner(models.Model):
         string="Nº portátiles",
         default=0,
     )
+    contract_it_devices_laptop = fields.Integer(
+        string="Nº portátil (legacy)",
+        compute="_compute_contract_it_devices_laptop",
+        inverse="_inverse_contract_it_devices_laptop",
+        store=False,
+    )
     contract_it_devices_desktops = fields.Integer(
         string="Nº sobremesa",
         default=0,
@@ -190,6 +220,15 @@ class Partner(models.Model):
         'partner_id',
         string="Contratos extra",
     )
+
+    @api.depends('contract_it_devices_laptops')
+    def _compute_contract_it_devices_laptop(self):
+        for partner in self:
+            partner.contract_it_devices_laptop = partner.contract_it_devices_laptops or 0
+
+    def _inverse_contract_it_devices_laptop(self):
+        for partner in self:
+            partner.contract_it_devices_laptops = partner.contract_it_devices_laptop or 0
 
     street_number = fields.Char(
         string="Número",
