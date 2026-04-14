@@ -61,11 +61,18 @@
                     <group>
                         <group string="Datos del producto">
                             <field name="product_business_type" widget="radio" />
-                            <field name="product_notes" placeholder="Descripcion opcional" />
+                            <field name="product_notes" placeholder="Descripción opcional" />
                             <field name="product_mode" widget="radio" />
+                            <field name="has_imei" />
+                            <field
+                                name="imei_number"
+                                placeholder="Introduce el IMEI"
+                                invisible="not has_imei"
+                                required="has_imei"
+                            />
                             <field
                                 name="piece_input"
-                                placeholder="Escribe una pieza y guarda para anadirla"
+                                placeholder="Escribe una pieza y guarda para añadirla"
                                 invisible="product_mode != 'pieces'"
                             />
                             <field

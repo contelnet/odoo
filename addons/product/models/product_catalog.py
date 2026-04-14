@@ -83,7 +83,7 @@ class Product(models.Model):
         return bool(model and getattr(model, "_name", None) == model_name)
 
     def init(self):
-        """Autocura de esquema para instalaciones donde el upgrade de módulo quedó a medias.
+        """
 
         Evita errores `UndefinedColumn` al cargar `product.template`/`product.product`
         cuando existen campos nuevos en código pero aún no en la tabla SQL.
@@ -96,6 +96,8 @@ class Product(models.Model):
                 ADD COLUMN IF NOT EXISTS product_business_type varchar,
                 ADD COLUMN IF NOT EXISTS product_notes text,
                 ADD COLUMN IF NOT EXISTS canon_amount numeric,
+                ADD COLUMN IF NOT EXISTS has_imei boolean,
+                ADD COLUMN IF NOT EXISTS imei_number varchar,
                 ADD COLUMN IF NOT EXISTS purchase_tax_percent numeric,
                 ADD COLUMN IF NOT EXISTS sale_tax_percent numeric,
                 ADD COLUMN IF NOT EXISTS piece_input varchar,
@@ -131,6 +133,13 @@ class Product(models.Model):
              WHERE product_business_type IS NULL
             """
         )
+        self.env.cr.execute(
+            """
+            UPDATE product_template
+               SET has_imei = FALSE
+                    WHERE has_imei IS NULL
+            """
+        )
 
     ticket_active = fields.Boolean(
         "Disponible para tickets", default=True, required=True
@@ -158,6 +167,14 @@ class Product(models.Model):
         string="Canon",
         currency_field="currency_id",
         help="Importe manual del canon aplicado al producto.",
+    )
+    has_imei = fields.Boolean(
+        string="Tiene IMEI",
+        help="Marcar cuando el producto tiene identificador IMEI.",
+    )
+    imei_number = fields.Char(
+        string="IMEI",
+        help="IMEI del dispositivo (normalmente 15 dígitos).",
     )
     has_serial_number = fields.Boolean(
         string="Tiene numero de serie",
@@ -374,6 +391,12 @@ class Product(models.Model):
                 product.product_business_type = "service"
             elif product.product_business_type == "service":
                 product.product_business_type = "goods"
+
+    @api.onchange("has_imei")
+    def _onchange_has_imei(self):
+        for product in self:
+            if not product.has_imei:
+                product.imei_number = False
 
     def _inverse_has_serial_number(self):
         for product in self:
@@ -749,6 +772,8 @@ class Product(models.Model):
         return products
 
     def write(self, vals):
+        if "has_imei" in vals and not vals.get("has_imei"):
+            vals["imei_number"] = False
         if (
             vals.get("stock_location_id")
             and not vals.get("company_id")
@@ -806,6 +831,23 @@ class Product(models.Model):
                 raise ValidationError(
                     _("Los productos unicos solo pueden tener una unidad en stock.")
                 )
+
+    @api.constrains("has_imei", "imei_number")
+    def _check_imei_number(self):
+        for product in self:
+            if not product.has_imei:
+                continue
+            imei = (product.imei_number or "").strip()
+            if not imei:
+                raise ValidationError(
+                    _("Debes indicar el IMEI cuando la casilla 'Tiene IMEI' esté marcada.")
+                )
+            normalized_imei = imei.replace(" ", "")
+            if not normalized_imei.isdigit() or len(normalized_imei) != 15:
+                raise ValidationError(
+                    _("El IMEI debe contener exactamente 15 dígitos numéricos.")
+                )
+            product.imei_number = normalized_imei
 
     @api.constrains(
         "has_serial_number",
