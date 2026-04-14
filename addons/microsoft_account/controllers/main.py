@@ -20,7 +20,11 @@ class MicrosoftAuth(http.Controller):
             raise BadRequest()
 
         if kw.get('code'):
-            base_url = request.httprequest.url_root.strip('/') or request.env.user.get_base_url()
+            # Keep callback redirect URI source aligned with the authorization URI
+            # built by microsoft_calendar (_microsoft_authentication_url), which
+            # relies on microsoft.service.get_base_url(). This avoids protocol
+            # mismatches (http/https) when Odoo is behind a reverse proxy.
+            base_url = request.env['microsoft.service'].get_base_url() or request.httprequest.url_root.strip('/')
             access_token, refresh_token, ttl = request.env['microsoft.service']._get_microsoft_tokens(
                 kw['code'],
                 service,
