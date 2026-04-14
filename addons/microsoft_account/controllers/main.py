@@ -2,6 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import json
+from urllib.parse import urlparse
 from werkzeug.exceptions import BadRequest
 
 from odoo import http
@@ -20,11 +21,20 @@ class MicrosoftAuth(http.Controller):
             raise BadRequest()
 
         if kw.get('code'):
-            # Keep callback redirect URI source aligned with the authorization URI
-            # built by microsoft_calendar (_microsoft_authentication_url), which
-            # relies on microsoft.service.get_base_url(). This avoids protocol
-            # mismatches (http/https) when Odoo is behind a reverse proxy.
-            base_url = request.env['microsoft.service'].get_base_url() or request.httprequest.url_root.strip('/')
+            # Build callback URI deterministically to avoid http/https mismatches
+            # behind reverse proxies. Prefer the same scheme/host as the return URL
+            # stored in OAuth state (state['f']).
+            base_url = False
+            if url_return:
+                parsed = urlparse(url_return)
+                if parsed.scheme and parsed.netloc:
+                    base_url = f"{parsed.scheme}://{parsed.netloc}"
+            if not base_url:
+                base_url = request.env['ir.config_parameter'].sudo().get_param('web.base.url')
+            if not base_url:
+                base_url = request.env['microsoft.service'].get_base_url()
+            if not base_url:
+                base_url = request.httprequest.url_root.strip('/')
             access_token, refresh_token, ttl = request.env['microsoft.service']._get_microsoft_tokens(
                 kw['code'],
                 service,
