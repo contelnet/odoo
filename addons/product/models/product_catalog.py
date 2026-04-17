@@ -39,6 +39,22 @@ class Product(models.Model):
     def _default_purchase_taxes(self):
         return self._default_21_tax("purchase")
 
+    @api.model
+    def default_get(self, fields_list):
+        res = super().default_get(fields_list)
+
+        if "taxes_id" in fields_list and not res.get("taxes_id"):
+            sale_tax = self._default_sale_taxes()
+            if sale_tax:
+                res["taxes_id"] = [(6, 0, sale_tax.ids)]
+
+        if "supplier_taxes_id" in fields_list and not res.get("supplier_taxes_id"):
+            purchase_tax = self._default_purchase_taxes()
+            if purchase_tax:
+                res["supplier_taxes_id"] = [(6, 0, purchase_tax.ids)]
+
+        return res
+
     taxes_id = fields.Many2many(
         'account.tax',
         'product_taxes_rel',
