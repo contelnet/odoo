@@ -19,19 +19,41 @@ class Product(models.Model):
             ("company_id", "=", self.env.company.id),
         ]
 
-        # Prioridad estricta por nombre: 21%V / 21%C.
+        # Coincidencia exacta solicitada: "21 % V" / "21 % C".
+        exact_name = "21 % V" if tax_use == "sale" else "21 % C"
+        exact_tax = Tax.search(
+            [
+                ("type_tax_use", "=", tax_use),
+                ("amount_type", "=", "percent"),
+                ("amount", "=", 21.0),
+                ("name", "=", exact_name),
+                *company_domain,
+            ],
+            order="company_id desc, sequence, id",
+            limit=1,
+        )
+        if exact_tax:
+            return exact_tax
+
+        # Prioridad por nombre lógico: 21%V / 21%C (ignorando espacios y mayúsculas).
         tax_name = "21%V" if tax_use == "sale" else "21%C"
         candidates = Tax.search(
             [
                 ("type_tax_use", "=", tax_use),
-                ("amount", "=", 21.0),
+                ("amount_type", "=", "percent"),
                 *company_domain,
             ],
+            order="company_id desc, sequence, id",
         )
         for candidate in candidates:
             normalized = (candidate.name or "").upper().replace(" ", "")
             if normalized == tax_name:
                 return candidate
+
+        for candidate in candidates:
+            if abs((candidate.amount or 0.0) - 21.0) < 1e-6:
+                return candidate
+
         return False
 
     @api.model
@@ -761,12 +783,22 @@ class Product(models.Model):
                                         if isinstance(record_id, int) and record_id > 0:
                                             valid_ids.append(record_id)
                 except Exception:
-                    # Si llega un formato inesperado, dejar el valor original.
                     continue
 
                 # Mantener SOLO comandos M2M válidos para create: [(6, 0, [ids...])]
                 clean_ids = list(dict.fromkeys(valid_ids))
                 vals[many2many_field] = [(6, 0, clean_ids)] if clean_ids else False
+
+            # Si el cliente no envía los campos de impuestos al crear,
+            # completar con el 21% por defecto en compra y venta.
+            if "taxes_id" not in vals:
+                sale_tax = self._default_sale_taxes()
+                if sale_tax:
+                    vals["taxes_id"] = [(6, 0, sale_tax.ids)]
+            if "supplier_taxes_id" not in vals:
+                purchase_tax = self._default_purchase_taxes()
+                if purchase_tax:
+                    vals["supplier_taxes_id"] = [(6, 0, purchase_tax.ids)]
 
         products = super().create(vals_list)
         products._sync_pending_pieces()
