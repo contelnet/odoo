@@ -12,14 +12,20 @@ class Product(models.Model):
     def _default_21_tax(self, tax_use):
         if not self._is_model_available("account.tax"):
             return False
-        tax = self.env["account.tax"].search(
+        Tax = self.env["account.tax"]
+        company_domain = [
+            "|",
+            ("company_id", "=", False),
+            ("company_id", "=", self.env.company.id),
+        ]
+
+        # Estricto: solo impuestos exactamente "21 % V" / "21 % C".
+        tax_name = "21 % V" if tax_use == "sale" else "21 % C"
+        tax = Tax.search(
             [
                 ("type_tax_use", "=", tax_use),
-                ("amount_type", "=", "percent"),
-                ("amount", "=", 21.0),
-                "|",
-                ("company_id", "=", False),
-                ("company_id", "=", self.env.company.id),
+                ("name", "=", tax_name),
+                *company_domain,
             ],
             limit=1,
         )
@@ -27,33 +33,11 @@ class Product(models.Model):
 
     @api.model
     def _default_sale_taxes(self):
-        tax_21 = self._default_21_tax("sale")
-        if tax_21:
-            return tax_21
-        if not self._is_model_available("account.tax"):
-            return False
-        companies = self.env.companies
-        if "account_sale_tax_id" in companies._fields and companies.account_sale_tax_id:
-            return companies.account_sale_tax_id
-        root_company = companies.root_id.sudo() if companies.root_id else False
-        if root_company and "account_sale_tax_id" in root_company._fields:
-            return root_company.account_sale_tax_id
-        return False
+        return self._default_21_tax("sale")
 
     @api.model
     def _default_purchase_taxes(self):
-        tax_21 = self._default_21_tax("purchase")
-        if tax_21:
-            return tax_21
-        if not self._is_model_available("account.tax"):
-            return False
-        companies = self.env.companies
-        if "account_purchase_tax_id" in companies._fields and companies.account_purchase_tax_id:
-            return companies.account_purchase_tax_id
-        root_company = companies.root_id.sudo() if companies.root_id else False
-        if root_company and "account_purchase_tax_id" in root_company._fields:
-            return root_company.account_purchase_tax_id
-        return False
+        return self._default_21_tax("purchase")
 
     taxes_id = fields.Many2many(
         'account.tax',
