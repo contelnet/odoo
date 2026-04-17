@@ -731,9 +731,6 @@ class Product(models.Model):
                 location = self.env["stock.location"].browse(vals["stock_location_id"])
                 vals["company_id"] = location.company_id.id or self.env.company.id
 
-            # Limpiar Many2many para evitar comandos inválidos/objetos temporales sin ID
-            # Importante: en install/upgrade Odoo usa placeholders internos (p.ej. _unknown)
-            # durante precompute; no debemos normalizar esos comandos ahí.
             if install_mode:
                 continue
 
@@ -785,12 +782,10 @@ class Product(models.Model):
                 except Exception:
                     continue
 
-                # Mantener SOLO comandos M2M válidos para create: [(6, 0, [ids...])]
                 clean_ids = list(dict.fromkeys(valid_ids))
                 vals[many2many_field] = [(6, 0, clean_ids)] if clean_ids else False
 
-            # Si el cliente no envía los campos de impuestos al crear,
-            # completar con el 21% por defecto en compra y venta.
+
             if "taxes_id" not in vals:
                 sale_tax = self._default_sale_taxes()
                 if sale_tax:
