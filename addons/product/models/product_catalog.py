@@ -19,17 +19,20 @@ class Product(models.Model):
             ("company_id", "=", self.env.company.id),
         ]
 
-        # Estricto: solo impuestos exactamente "21 % V" / "21 % C".
-        tax_name = "21 % V" if tax_use == "sale" else "21 % C"
-        tax = Tax.search(
+        # Prioridad estricta por nombre: 21%V / 21%C.
+        tax_name = "21%V" if tax_use == "sale" else "21%C"
+        candidates = Tax.search(
             [
                 ("type_tax_use", "=", tax_use),
-                ("name", "=", tax_name),
+                ("amount", "=", 21.0),
                 *company_domain,
             ],
-            limit=1,
         )
-        return tax or False
+        for candidate in candidates:
+            normalized = (candidate.name or "").upper().replace(" ", "")
+            if normalized == tax_name:
+                return candidate
+        return False
 
     @api.model
     def _default_sale_taxes(self):
@@ -43,12 +46,12 @@ class Product(models.Model):
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
 
-        if "taxes_id" in fields_list and not res.get("taxes_id"):
+        if not res.get("taxes_id"):
             sale_tax = self._default_sale_taxes()
             if sale_tax:
                 res["taxes_id"] = [(6, 0, sale_tax.ids)]
 
-        if "supplier_taxes_id" in fields_list and not res.get("supplier_taxes_id"):
+        if not res.get("supplier_taxes_id"):
             purchase_tax = self._default_purchase_taxes()
             if purchase_tax:
                 res["supplier_taxes_id"] = [(6, 0, purchase_tax.ids)]
