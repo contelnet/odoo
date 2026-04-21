@@ -1,4 +1,5 @@
 from markupsafe import escape
+from datetime import timedelta
 
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
@@ -282,6 +283,45 @@ class Product(models.Model):
         readonly=False,
         help="Stock real disponible en inventario. Si lo editas, se ajusta automáticamente en el inventario interno.",
     )
+    stock_real_qty = fields.Float(
+        string="Stock real total",
+        compute="_compute_stock_real_qty",
+        digits="Product Unit of Measure",
+        readonly=True,
+        help="Stock total disponible en todas las ubicaciones internas de inventario.",
+    )
+    stock_in_today_qty = fields.Float(
+        string="Entradas hoy",
+        compute="_compute_stock_activity_summary",
+        digits="Product Unit of Measure",
+        readonly=True,
+    )
+    stock_out_today_qty = fields.Float(
+        string="Salidas hoy",
+        compute="_compute_stock_activity_summary",
+        digits="Product Unit of Measure",
+        readonly=True,
+    )
+    stock_last_move_at = fields.Datetime(
+        string="Último movimiento",
+        compute="_compute_stock_activity_summary",
+        readonly=True,
+    )
+    stock_last_move_ref = fields.Char(
+        string="Referencia último movimiento",
+        compute="_compute_stock_activity_summary",
+        readonly=True,
+    )
+    stock_activity_period = fields.Selection(
+        selection=[
+            ("today", "Hoy"),
+            ("7d", "Últimos 7 días"),
+            ("30d", "Últimos 30 días"),
+        ],
+        string="Periodo",
+        default="today",
+        help="Periodo de análisis para entradas/salidas mostradas en el panel de inventario.",
+    )
     stock_initial_qty = fields.Float(
         string="Stock inicial",
         default=0.0,
@@ -523,6 +563,7 @@ class Product(models.Model):
                 product.tracking = "none"
                 product.serial_number_input = False
 
+    @api.depends("stock_location_id", "product_variant_ids.qty_available", "type", "stock_initial_applied_qty")
     def _compute_stock_qty(self):
         if not self._is_model_available("stock.quant"):
             for product in self:
@@ -545,6 +586,85 @@ class Product(models.Model):
                 )
             except Exception:
                 product.stock_qty = 0.0
+
+    @api.depends("product_variant_ids.qty_available", "type")
+    def _compute_stock_real_qty(self):
+        for product in self:
+            if not product.id or not product._is_product_storable_for_stock():
+                product.stock_real_qty = 0.0
+                continue
+            variant = product.product_variant_id
+            product.stock_real_qty = float(getattr(variant, "qty_available", 0.0) or 0.0)
+
+    @api.depends("product_variant_ids.qty_available", "type", "stock_activity_period")
+    def _compute_stock_activity_summary(self):
+        has_move_line = self._is_model_available("stock.move.line")
+        MoveLine = self.env["stock.move.line"].sudo() if has_move_line else False
+        today = fields.Date.context_today(self)
+
+        for product in self:
+            product.stock_in_today_qty = 0.0
+            product.stock_out_today_qty = 0.0
+            product.stock_last_move_at = False
+            product.stock_last_move_ref = False
+
+            if not has_move_line or not product.id or not product._is_product_storable_for_stock():
+                continue
+
+            period = product.stock_activity_period or "today"
+            if period == "7d":
+                start_date = today - timedelta(days=6)
+            elif period == "30d":
+                start_date = today - timedelta(days=29)
+            else:
+                start_date = today
+
+            start_dt = fields.Datetime.to_datetime(f"{start_date} 00:00:00")
+            end_dt = fields.Datetime.to_datetime(f"{today} 23:59:59") + timedelta(seconds=1)
+
+            variant = product.product_variant_id
+            day_lines = MoveLine.search(
+                [
+                    ("product_id", "=", variant.id),
+                    ("date", ">=", start_dt),
+                    ("date", "<", end_dt),
+                    ("state", "=", "done"),
+                ]
+            )
+
+            entries = 0.0
+            exits = 0.0
+            for line in day_lines:
+                qty = float(
+                    getattr(line, "quantity", 0.0)
+                    or getattr(line, "qty_done", 0.0)
+                    or getattr(line, "product_uom_qty", 0.0)
+                )
+                if qty <= 0.0:
+                    continue
+                src_internal = getattr(line.location_id, "usage", None) == "internal"
+                dst_internal = getattr(line.location_dest_id, "usage", None) == "internal"
+                if dst_internal and not src_internal:
+                    entries += qty
+                elif src_internal and not dst_internal:
+                    exits += qty
+
+            last_line = MoveLine.search(
+                [
+                    ("product_id", "=", variant.id),
+                    ("state", "=", "done"),
+                ],
+                order="date desc, id desc",
+                limit=1,
+            )
+            product.stock_in_today_qty = entries
+            product.stock_out_today_qty = exits
+            product.stock_last_move_at = last_line.date if last_line else False
+            product.stock_last_move_ref = (
+                last_line.reference
+                or (last_line.move_id.reference if last_line and last_line.move_id else False)
+                or (last_line.picking_id.name if last_line and last_line.picking_id else False)
+            )
 
     @api.depends("stock_qty", "stock_location_id", "type")
     def _compute_stock_sync_status(self):
@@ -669,6 +789,23 @@ class Product(models.Model):
             self._inverse_stock_initial_qty()
         if "stock_qty" in vals:
             self._inverse_stock_qty()
+
+    def action_open_inventory_quants(self):
+        self.ensure_one()
+        if not self._is_model_available("stock.quant"):
+            raise ValidationError(_("El módulo de Inventario no está disponible."))
+        action = self.env.ref("stock.quantsact", raise_if_not_found=False)
+        if not action:
+            raise ValidationError(_("No se ha encontrado la acción de inventario de quants."))
+
+        return {
+            **action.read()[0],
+            "domain": [("product_id", "=", self.product_variant_id.id)],
+            "context": {
+                "search_default_internal_loc": 1,
+                "default_product_id": self.product_variant_id.id,
+            },
+        }
 
 
     @api.depends("purchase_total", "sale_total", "canon_amount")
