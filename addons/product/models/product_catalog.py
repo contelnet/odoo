@@ -563,7 +563,7 @@ class Product(models.Model):
                 product.tracking = "none"
                 product.serial_number_input = False
 
-    @api.depends("stock_location_id", "product_variant_ids.qty_available", "type", "stock_initial_applied_qty")
+    @api.depends("stock_location_id", "type", "stock_initial_applied_qty")
     def _compute_stock_qty(self):
         if not self._is_model_available("stock.quant"):
             for product in self:
@@ -587,16 +587,20 @@ class Product(models.Model):
             except Exception:
                 product.stock_qty = 0.0
 
-    @api.depends("product_variant_ids.qty_available", "type")
+    @api.depends("type", "stock_initial_applied_qty")
     def _compute_stock_real_qty(self):
         for product in self:
             if not product.id or not product._is_product_storable_for_stock():
                 product.stock_real_qty = 0.0
                 continue
             variant = product.product_variant_id
-            product.stock_real_qty = float(getattr(variant, "qty_available", 0.0) or 0.0)
+            internal_qty_method = getattr(variant, "_get_internal_available_qty", None)
+            if callable(internal_qty_method):
+                product.stock_real_qty = float(internal_qty_method() or 0.0)
+            else:
+                product.stock_real_qty = float(getattr(variant, "qty_available", 0.0) or 0.0)
 
-    @api.depends("product_variant_ids.qty_available", "type", "stock_activity_period")
+    @api.depends("type", "stock_activity_period", "stock_initial_applied_qty")
     def _compute_stock_activity_summary(self):
         has_move_line = self._is_model_available("stock.move.line")
         MoveLine = self.env["stock.move.line"].sudo() if has_move_line else False

@@ -242,6 +242,36 @@ class Product(models.Model):
         self.ensure_one()
         return self.ids
 
+    def _get_internal_available_qty(self, location=False, include_reserved=True):
+        """Devuelve cantidad disponible en ubicaciones internas.
+
+        - Si se pasa `location`, limita a esa ubicación.
+        - Si no se pasa, suma ubicaciones internas de las compañías permitidas.
+        """
+        self.ensure_one()
+        Quant = self.env['stock.quant'].with_context(active_test=False)
+
+        if location:
+            domain = [
+                ('product_id', '=', self.id),
+                ('location_id', '=', location.id),
+            ]
+        else:
+            domain = [
+                ('product_id', '=', self.id),
+                ('location_id.usage', '=', 'internal'),
+                '|',
+                ('location_id.company_id', '=', False),
+                ('location_id.company_id', 'in', self.env.companies.ids),
+            ]
+
+        quants = Quant.search(domain)
+        quantity = sum((quant.quantity or 0.0) for quant in quants)
+        if include_reserved:
+            return quantity
+        reserved = sum((getattr(quant, 'reserved_quantity', 0.0) or 0.0) for quant in quants)
+        return quantity - reserved
+
     def _get_description(self, picking_type_id):
         """ return product receipt/delivery/picking description depending on
         picking type passed as argument.
