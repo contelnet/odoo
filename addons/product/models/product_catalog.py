@@ -425,7 +425,16 @@ class Product(models.Model):
         self.ensure_one()
         if "is_storable" in self._fields:
             return bool(self.is_storable)
-        return self.type in ("consu", "product")
+        if self.type in ("consu", "product"):
+            return True
+        return bool(self.stock_initial_applied_qty or self.stock_initial_qty)
+
+    def _ensure_stock_tracking_enabled(self):
+        self.ensure_one()
+        if "is_storable" in self._fields:
+            self.is_storable = True
+        elif "type" in self._fields and self.type == "consu":
+            self.type = "product"
 
     @api.model
     def _get_available_quantity_safe(self, quant_model, variant, location):
@@ -481,7 +490,10 @@ class Product(models.Model):
             if product.product_business_type == "service":
                 product.type = "service"
             else:
-                product.type = "consu"
+                if product.stock_initial_qty or product.stock_initial_applied_qty:
+                    product.type = "product"
+                else:
+                    product.type = "consu"
 
     @api.onchange("type")
     def _onchange_type_to_business_type(self):
@@ -576,8 +588,7 @@ class Product(models.Model):
                 getattr(variant.uom_id, "rounding", None)
             )
             product._validate_target_stock_quantity(target_qty, precision_rounding)
-            if "is_storable" in product._fields:
-                product.is_storable = True
+            product._ensure_stock_tracking_enabled()
 
             current_qty = product._get_available_quantity_safe(
                 quant_model,
@@ -629,8 +640,7 @@ class Product(models.Model):
                 getattr(variant.uom_id, "rounding", None)
             )
             product._validate_target_stock_quantity(target_initial_qty, precision_rounding)
-            if "is_storable" in product._fields:
-                product.is_storable = True
+            product._ensure_stock_tracking_enabled()
 
             previous_applied = float(product.stock_initial_applied_qty or 0.0)
             if product.stock_initial_locked and not float_is_zero(
