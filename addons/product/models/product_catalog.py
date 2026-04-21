@@ -421,6 +421,12 @@ class Product(models.Model):
             return bool(location.exists())
         return False
 
+    def _is_product_storable_for_stock(self):
+        self.ensure_one()
+        if "is_storable" in self._fields:
+            return bool(self.is_storable)
+        return self.type in ("consu", "product")
+
     @api.model
     def _get_available_quantity_safe(self, quant_model, variant, location):
         """Cantidad disponible robusta ante UoM mal configuradas (rounding <= 0)."""
@@ -515,7 +521,7 @@ class Product(models.Model):
             location = product._get_stock_location()
             if (
                 not product.id
-                or not product.is_storable
+                or not product._is_product_storable_for_stock()
                 or not product._is_valid_stock_location_record(location)
             ):
                 product.stock_qty = 0.0
@@ -528,7 +534,7 @@ class Product(models.Model):
             except Exception:
                 product.stock_qty = 0.0
 
-    @api.depends("stock_qty", "stock_location_id", "is_storable")
+    @api.depends("stock_qty", "stock_location_id", "type")
     def _compute_stock_sync_status(self):
         if not self._is_model_available("stock.quant"):
             for product in self:
@@ -539,7 +545,7 @@ class Product(models.Model):
             location = product._get_stock_location()
             if (
                 not product.id
-                or not product.is_storable
+                or not product._is_product_storable_for_stock()
                 or not product._is_valid_stock_location_record(location)
             ):
                 product.stock_sync_status = "unavailable"
