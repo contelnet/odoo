@@ -188,7 +188,7 @@ class Product(models.Model):
             UPDATE product_template
                SET stock_initial_locked = FALSE
              WHERE stock_initial_locked IS NULL
-            """
+            """ 
         )
         self.env.cr.execute(
             """
@@ -645,6 +645,15 @@ class Product(models.Model):
                 product.stock_initial_locked = True
             product.stock_last_synced_at = fields.Datetime.now()
 
+    def _apply_stock_sync_from_values(self, vals):
+        """Sincroniza inventario cuando el formulario envía campos de stock."""
+        if not vals:
+            return
+        if "stock_initial_qty" in vals:
+            self._inverse_stock_initial_qty()
+        if "stock_qty" in vals:
+            self._inverse_stock_qty()
+
 
     @api.depends("purchase_total", "sale_total", "canon_amount")
     def _compute_totals_with_canon(self):
@@ -862,7 +871,14 @@ class Product(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         install_mode = bool(self.env.context.get("install_mode"))
+        stock_sync_map = []
         for vals in vals_list:
+            stock_sync_map.append(
+                {
+                    "stock_initial_qty": vals.get("stock_initial_qty") if "stock_initial_qty" in vals else None,
+                    "stock_qty": vals.get("stock_qty") if "stock_qty" in vals else None,
+                }
+            )
             if (
                 vals.get("stock_location_id")
                 and not vals.get("company_id")
@@ -939,6 +955,9 @@ class Product(models.Model):
         products._sync_pending_pieces()
         products._apply_piece_total_price()
         products._sync_pending_serial_numbers()
+        if not install_mode:
+            for product, stock_sync_vals in zip(products, stock_sync_map):
+                product._apply_stock_sync_from_values(stock_sync_vals)
         return products
 
     def write(self, vals):
@@ -952,6 +971,7 @@ class Product(models.Model):
             location = self.env["stock.location"].browse(vals["stock_location_id"])
             vals["company_id"] = location.company_id.id or self.env.company.id
         result = super().write(vals)
+        self._apply_stock_sync_from_values(vals)
         if "piece_input" in vals or "piece_product_id" in vals or "product_mode" in vals:
             self._sync_pending_pieces()
         if "piece_ids" in vals or "piece_input" in vals or "piece_product_id" in vals or "product_mode" in vals:
