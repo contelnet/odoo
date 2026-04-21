@@ -132,7 +132,9 @@ class Product(models.Model):
                 ADD COLUMN IF NOT EXISTS supplier_reference text,
                 ADD COLUMN IF NOT EXISTS stock_location_id integer,
                 ADD COLUMN IF NOT EXISTS stock_initial_qty numeric,
-                ADD COLUMN IF NOT EXISTS stock_initial_applied_qty numeric
+                ADD COLUMN IF NOT EXISTS stock_initial_applied_qty numeric,
+                ADD COLUMN IF NOT EXISTS stock_initial_locked boolean,
+                ADD COLUMN IF NOT EXISTS stock_last_synced_at timestamp
             """
         )
 
@@ -179,6 +181,21 @@ class Product(models.Model):
             UPDATE product_template
                SET stock_initial_applied_qty = 0
              WHERE stock_initial_applied_qty IS NULL
+            """
+        )
+        self.env.cr.execute(
+            """
+            UPDATE product_template
+               SET stock_initial_locked = FALSE
+             WHERE stock_initial_locked IS NULL
+            """
+        )
+        self.env.cr.execute(
+            """
+            UPDATE product_template
+               SET stock_initial_locked = TRUE
+             WHERE COALESCE(stock_initial_applied_qty, 0) != 0
+               AND stock_initial_locked = FALSE
             """
         )
 
@@ -262,7 +279,8 @@ class Product(models.Model):
         string="Stock",
         compute="_compute_stock_qty",
         digits="Product Unit of Measure",
-        readonly=True,
+        readonly=False,
+        help="Stock real disponible en inventario. Si lo editas, se ajusta automáticamente en el inventario interno.",
     )
     stock_initial_qty = fields.Float(
         string="Stock inicial",
@@ -277,6 +295,26 @@ class Product(models.Model):
         digits="Product Unit of Measure",
         copy=False,
         readonly=True,
+    )
+    stock_initial_locked = fields.Boolean(
+        string="Stock inicial bloqueado",
+        default=False,
+        copy=False,
+        readonly=True,
+    )
+    stock_sync_status = fields.Selection(
+        selection=[
+            ("synced", "Sincronizado"),
+            ("pending", "Pendiente de guardar"),
+            ("unavailable", "No disponible"),
+        ],
+        string="Estado de sincronización",
+        compute="_compute_stock_sync_status",
+    )
+    stock_last_synced_at = fields.Datetime(
+        string="Última sincronización",
+        readonly=True,
+        copy=False,
     )
     stock_location_id = fields.Many2one(
         comodel_name="stock.location",
@@ -490,9 +528,85 @@ class Product(models.Model):
             except Exception:
                 product.stock_qty = 0.0
 
+    @api.depends("stock_qty", "stock_location_id", "is_storable")
+    def _compute_stock_sync_status(self):
+        if not self._is_model_available("stock.quant"):
+            for product in self:
+                product.stock_sync_status = "unavailable"
+            return
+        quant_model = self.env["stock.quant"].sudo()
+        for product in self:
+            location = product._get_stock_location()
+            if (
+                not product.id
+                or not product.is_storable
+                or not product._is_valid_stock_location_record(location)
+            ):
+                product.stock_sync_status = "unavailable"
+                continue
+            variant = product.product_variant_id
+            precision_rounding = product._get_positive_rounding(
+                getattr(variant.uom_id, "rounding", None)
+            )
+            real_qty = product._get_available_quantity_safe(quant_model, variant, location)
+            target_qty = float(product.stock_qty or 0.0)
+            product.stock_sync_status = (
+                "synced"
+                if float_is_zero(target_qty - real_qty, precision_rounding=precision_rounding)
+                else "pending"
+            )
+
     def _inverse_stock_qty(self):
-        # Mantener compatibilidad si algún flujo legado intenta escribir stock_qty.
-        self._inverse_stock_initial_qty()
+        if not self._is_model_available("stock.quant"):
+            return
+        quant_model = self.env["stock.quant"].sudo()
+        for product in self:
+            location = product._get_stock_location()
+            if not product._is_valid_stock_location_record(location):
+                continue
+            variant = product._get_single_variant()
+            target_qty = float(product.stock_qty or 0.0)
+            precision_rounding = product._get_positive_rounding(
+                getattr(variant.uom_id, "rounding", None)
+            )
+            product._validate_target_stock_quantity(target_qty, precision_rounding)
+            if "is_storable" in product._fields:
+                product.is_storable = True
+
+            current_qty = product._get_available_quantity_safe(
+                quant_model,
+                variant,
+                location,
+            )
+            delta_qty = target_qty - current_qty
+            if float_is_zero(delta_qty, precision_rounding=precision_rounding):
+                continue
+            quant_model._update_available_quantity(variant, location, quantity=delta_qty)
+            product.stock_last_synced_at = fields.Datetime.now()
+
+    def _validate_target_stock_quantity(self, target_qty, precision_rounding):
+        self.ensure_one()
+        if self.product_mode == "single" and float_compare(
+            target_qty,
+            1.0,
+            precision_rounding=precision_rounding,
+        ) > 0:
+            raise ValidationError(
+                _(
+                    "Los productos unicos solo admiten una unidad en stock."
+                )
+            )
+        tracking_value = self.tracking if "tracking" in self._fields else "none"
+        if tracking_value == "serial" and float_compare(
+            target_qty,
+            round(target_qty),
+            precision_rounding=precision_rounding,
+        ):
+            raise ValidationError(
+                _(
+                    "Los productos con numero de serie solo admiten cantidades enteras."
+                )
+            )
 
     def _inverse_stock_initial_qty(self):
         if not self._is_model_available("stock.quant"):
@@ -508,36 +622,28 @@ class Product(models.Model):
             precision_rounding = product._get_positive_rounding(
                 getattr(variant.uom_id, "rounding", None)
             )
-            if product.product_mode == "single" and float_compare(
-                target_initial_qty,
-                1.0,
-                precision_rounding=precision_rounding,
-            ) > 0:
-                raise ValidationError(
-                    _(
-                        "Los productos unicos solo admiten una unidad en stock."
-                    )
-                )
-            tracking_value = product.tracking if "tracking" in product._fields else "none"
-            if tracking_value == "serial" and float_compare(
-                target_initial_qty,
-                round(target_initial_qty),
-                precision_rounding=precision_rounding,
-            ):
-                raise ValidationError(
-                    _(
-                        "Los productos con numero de serie solo admiten cantidades enteras."
-                    )
-                )
+            product._validate_target_stock_quantity(target_initial_qty, precision_rounding)
             if "is_storable" in product._fields:
                 product.is_storable = True
 
             previous_applied = float(product.stock_initial_applied_qty or 0.0)
+            if product.stock_initial_locked and not float_is_zero(
+                target_initial_qty - previous_applied,
+                precision_rounding=precision_rounding,
+            ):
+                raise ValidationError(
+                    _(
+                        "El stock inicial ya fue aplicado. A partir de ahora ajusta el 'Stock actual'."
+                    )
+                )
             delta_qty = target_initial_qty - previous_applied
             if float_is_zero(delta_qty, precision_rounding=precision_rounding):
                 continue
             quant_model._update_available_quantity(variant, location, quantity=delta_qty)
             product.stock_initial_applied_qty = target_initial_qty
+            if not float_is_zero(target_initial_qty, precision_rounding=precision_rounding):
+                product.stock_initial_locked = True
+            product.stock_last_synced_at = fields.Datetime.now()
 
 
     @api.depends("purchase_total", "sale_total", "canon_amount")

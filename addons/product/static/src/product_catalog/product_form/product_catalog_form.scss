@@ -1,0 +1,67 @@
+.hmgt-product-catalog-save-btn {
+    background: linear-gradient(135deg, #15803d 0%, #22c55e 100%) !important;
+    background-color: #16a34a !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    border-radius: 999px !important;
+    color: #ffffff !important;
+    box-shadow: 0 12px 24px rgba(21, 128, 61, 0.2) !important;
+    font-weight: 600 !important;
+    min-height: 2.5rem;
+    min-width: 7.5rem;
+    padding: 0.6rem 1.2rem;
+
+    &:hover,
+    &:focus {
+        filter: brightness(1.04);
+        box-shadow: 0 14px 28px rgba(21, 128, 61, 0.26) !important;
+    }
+}
+
+.product-catalog-form {
+    .hmgt-product-stock-panel {
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: 12px;
+        padding: 0.9rem;
+        margin-top: 0.5rem;
+    }
+
+    .hmgt-stock-status-row {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.65rem;
+        flex-wrap: wrap;
+
+        .o_field_badge {
+            font-weight: 600;
+            border-radius: 999px;
+            padding: 0.15rem 0.6rem;
+        }
+    }
+
+    .hmgt-product-stock-grid {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .hmgt-stock-help-text {
+        margin-top: 0.6rem;
+        font-size: 0.85rem;
+    }
+
+    .hmgt-stock-field-primary {
+        .o_input {
+            border-color: rgba(22, 163, 74, 0.35);
+            box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.08);
+        }
+    }
+
+    .hmgt-stock-field-secondary {
+        .o_input {
+            border-color: rgba(14, 116, 144, 0.25);
+        }
+    }
+}

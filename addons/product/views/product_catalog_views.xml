@@ -24,9 +24,8 @@
                         name="action_save_product_record"
                         type="object"
                         string="Guardar"
-                        class="btn product-catalog-save-btn"
+                        class="btn product-catalog-save-btn hmgt-product-catalog-save-btn"
                         icon="fa-save"
-                        style="background: linear-gradient(135deg, #15803d 0%, #22c55e 100%) !important; background-color: #16a34a !important; background-image: none !important; border: 1px solid rgba(255, 255, 255, 0.18) !important; border-radius: 999px !important; color: #ffffff !important; box-shadow: 0 12px 24px rgba(21, 128, 61, 0.2) !important; font-weight: 600 !important; min-height: 2.5rem; min-width: 7.5rem; padding: 0.6rem 1.2rem;"
                     />
                 </header>
                 <sheet name="product_form">
@@ -38,6 +37,7 @@
                     <field name="sale_ok" invisible="1" />
                     <field name="purchase_ok" invisible="1" />
                     <field name="type" invisible="1" />
+                    <field name="stock_initial_locked" invisible="1" />
                     <widget name="web_ribbon" title="Archivado" bg_color="text-bg-danger" invisible="active" />
 
                     <field
@@ -97,8 +97,20 @@
                                 placeholder="Introduce el numero de serie"
                                 invisible="not has_serial_number"
                             />
-                            <field name="stock_qty" string="Stock actual" readonly="1" help="Stock real disponible (compras + ajustes)."/>
-                            <field name="stock_initial_qty" string="Stock inicial" help="Cantidad inicial manual que se suma/resta sobre el stock real al guardar."/>
+                            <div class="hmgt-product-stock-panel">
+                                <label for="stock_qty" string="Inventario conectado" class="o_form_label"/>
+                                <div class="hmgt-stock-status-row">
+                                    <field name="stock_sync_status" widget="badge" decoration-success="stock_sync_status == 'synced'" decoration-warning="stock_sync_status == 'pending'" decoration-muted="stock_sync_status == 'unavailable'"/>
+                                    <field name="stock_last_synced_at" string="Última sincronización" readonly="1" invisible="not stock_last_synced_at"/>
+                                </div>
+                                <div class="hmgt-product-stock-grid">
+                                    <field name="stock_qty" string="Stock actual" class="hmgt-stock-field-primary" help="Stock real del inventario. Al editarlo y guardar, se repone/ajusta automáticamente en inventario."/>
+                                    <field name="stock_initial_qty" string="Stock inicial" class="hmgt-stock-field-secondary" invisible="stock_initial_locked" help="Carga inicial única del producto. Al guardarlo se aplica en stock actual y luego se bloquea."/>
+                                    <field name="stock_initial_applied_qty" string="Stock inicial aplicado" class="hmgt-stock-field-secondary" readonly="1" invisible="not stock_initial_locked"/>
+                                </div>
+                                <p class="text-muted mb-0 hmgt-stock-help-text" invisible="stock_initial_locked">Cualquier cambio guardado en este bloque actualiza automáticamente el inventario interno en la ubicación seleccionada.</p>
+                                <p class="text-muted mb-0 hmgt-stock-help-text" invisible="not stock_initial_locked">El stock inicial ya está aplicado. Desde ahora, el crecimiento por compras se refleja en Stock actual automáticamente.</p>
+                            </div>
                         </group>
                         <group string="Precios y proveedor">
                             <!-- COMPRA -->
