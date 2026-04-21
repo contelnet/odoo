@@ -97,7 +97,8 @@
                                 placeholder="Introduce el numero de serie"
                                 invisible="not has_serial_number"
                             />
-                            <field name="stock_qty" string="Stock inicial" help="Puedes establecer stock inicial manualmente sin necesidad de compras previas."/>
+                            <field name="stock_qty" string="Stock actual" readonly="1" help="Stock real disponible (compras + ajustes)."/>
+                            <field name="stock_initial_qty" string="Stock inicial" help="Cantidad inicial manual que se suma/resta sobre el stock real al guardar."/>
                         </group>
                         <group string="Precios y proveedor">
                             <!-- COMPRA -->
@@ -264,7 +265,8 @@
                 <field name="product_mode" optional="show" />
                 <field name="supplier_partner_id" optional="hide" />
                 <field name="supplier_reference" optional="hide" />
-                <field name="stock_qty" string="Stock inicial" optional="show" />
+                <field name="stock_qty" string="Stock actual" optional="show" />
+                <field name="stock_initial_qty" string="Stock inicial" optional="show" />
                 <field
                     name="standard_price"
                     string="Precio de compra"

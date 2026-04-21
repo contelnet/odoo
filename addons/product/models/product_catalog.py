@@ -130,7 +130,9 @@ class Product(models.Model):
                 ADD COLUMN IF NOT EXISTS serial_number_input varchar,
                 ADD COLUMN IF NOT EXISTS supplier_partner_id integer,
                 ADD COLUMN IF NOT EXISTS supplier_reference text,
-                ADD COLUMN IF NOT EXISTS stock_location_id integer
+                ADD COLUMN IF NOT EXISTS stock_location_id integer,
+                ADD COLUMN IF NOT EXISTS stock_initial_qty numeric,
+                ADD COLUMN IF NOT EXISTS stock_initial_applied_qty numeric
             """
         )
 
@@ -163,6 +165,20 @@ class Product(models.Model):
             UPDATE product_template
                SET has_imei = FALSE
                     WHERE has_imei IS NULL
+            """
+        )
+        self.env.cr.execute(
+            """
+            UPDATE product_template
+               SET stock_initial_qty = 0
+             WHERE stock_initial_qty IS NULL
+            """
+        )
+        self.env.cr.execute(
+            """
+            UPDATE product_template
+               SET stock_initial_applied_qty = 0
+             WHERE stock_initial_applied_qty IS NULL
             """
         )
 
@@ -245,8 +261,22 @@ class Product(models.Model):
     stock_qty = fields.Float(
         string="Stock",
         compute="_compute_stock_qty",
-        inverse="_inverse_stock_qty",
         digits="Product Unit of Measure",
+        readonly=True,
+    )
+    stock_initial_qty = fields.Float(
+        string="Stock inicial",
+        default=0.0,
+        digits="Product Unit of Measure",
+        inverse="_inverse_stock_initial_qty",
+        help="Cantidad inicial manual. Al guardar se suma/resta sobre el stock real.",
+    )
+    stock_initial_applied_qty = fields.Float(
+        string="Stock inicial aplicado",
+        default=0.0,
+        digits="Product Unit of Measure",
+        copy=False,
+        readonly=True,
     )
     stock_location_id = fields.Many2one(
         comodel_name="stock.location",
@@ -461,6 +491,10 @@ class Product(models.Model):
                 product.stock_qty = 0.0
 
     def _inverse_stock_qty(self):
+        # Mantener compatibilidad si algún flujo legado intenta escribir stock_qty.
+        self._inverse_stock_initial_qty()
+
+    def _inverse_stock_initial_qty(self):
         if not self._is_model_available("stock.quant"):
             return
         quant_model = self.env["stock.quant"].sudo()
@@ -469,13 +503,13 @@ class Product(models.Model):
             if not product._is_valid_stock_location_record(location):
                 continue
             variant = product._get_single_variant()
-            target_qty = product.stock_qty
+            target_initial_qty = float(product.stock_initial_qty or 0.0)
             # Obtener precision_rounding seguro
             precision_rounding = product._get_positive_rounding(
                 getattr(variant.uom_id, "rounding", None)
             )
             if product.product_mode == "single" and float_compare(
-                target_qty,
+                target_initial_qty,
                 1.0,
                 precision_rounding=precision_rounding,
             ) > 0:
@@ -486,8 +520,8 @@ class Product(models.Model):
                 )
             tracking_value = product.tracking if "tracking" in product._fields else "none"
             if tracking_value == "serial" and float_compare(
-                target_qty,
-                round(target_qty),
+                target_initial_qty,
+                round(target_initial_qty),
                 precision_rounding=precision_rounding,
             ):
                 raise ValidationError(
@@ -497,13 +531,13 @@ class Product(models.Model):
                 )
             if "is_storable" in product._fields:
                 product.is_storable = True
-            current_qty = product._get_available_quantity_safe(
-                quant_model, variant, location
-            )
-            delta_qty = target_qty - current_qty
+
+            previous_applied = float(product.stock_initial_applied_qty or 0.0)
+            delta_qty = target_initial_qty - previous_applied
             if float_is_zero(delta_qty, precision_rounding=precision_rounding):
                 continue
             quant_model._update_available_quantity(variant, location, quantity=delta_qty)
+            product.stock_initial_applied_qty = target_initial_qty
 
 
     @api.depends("purchase_total", "sale_total", "canon_amount")
