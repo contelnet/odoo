@@ -10,6 +10,37 @@ class Product(models.Model):
     _inherit = "product.template"
 
     @api.model
+    def _get_missing_comodel_fields(self, field_names=None):
+        """Devuelve campos relacionales cuyo comodel no existe en el registro.
+
+        Evita errores tipo:
+        AttributeError: '_unknown' object has no attribute 'id'
+        """
+        candidate_names = field_names or list(self._fields.keys())
+        missing = set()
+        for name in candidate_names:
+            field = self._fields.get(name)
+            if not field or field.type not in ("many2one", "one2many", "many2many"):
+                continue
+            comodel = getattr(field, "comodel_name", False)
+            if comodel and not self._is_model_available(comodel):
+                missing.add(name)
+        return missing
+
+    def read(self, fields=None, load="_classic_read"):
+        missing_fields = self._get_missing_comodel_fields(fields)
+        if not missing_fields:
+            return super().read(fields=fields, load=load)
+
+        safe_fields = [f for f in (fields or list(self._fields.keys())) if f not in missing_fields]
+        values_list = super().read(fields=safe_fields, load=load)
+        for vals in values_list:
+            for field_name in missing_fields:
+                field = self._fields[field_name]
+                vals[field_name] = False if field.type == "many2one" else []
+        return values_list
+
+    @api.model
     def _default_21_tax(self, tax_use):
         if not self._is_model_available("account.tax"):
             return False
