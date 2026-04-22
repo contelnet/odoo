@@ -27,13 +27,7 @@
                         class="btn product-catalog-save-btn hmgt-product-catalog-save-btn"
                         icon="fa-save"
                     />
-                    <button
-                        name="action_open_inventory_quants"
-                        type="object"
-                        string="Inventario"
-                        class="btn btn-secondary hmgt-product-inventory-btn"
-                        icon="fa-cubes"
-                    />
+
                 </header>
                 <sheet name="product_form">
                     <field name="active" invisible="1" />
@@ -105,11 +99,6 @@
                                 invisible="not has_serial_number"
                             />
                             <div class="hmgt-product-stock-panel">
-                                <label for="stock_qty" string="Inventario conectado" class="o_form_label"/>
-                                <div class="hmgt-stock-status-row">
-                                    <field name="stock_sync_status" widget="badge" decoration-success="stock_sync_status == 'synced'" decoration-warning="stock_sync_status == 'pending'" decoration-muted="stock_sync_status == 'unavailable'"/>
-                                    <field name="stock_last_synced_at" string="Última sincronización" readonly="1" invisible="not stock_last_synced_at"/>
-                                </div>
                                 <div class="hmgt-product-stock-grid">
                                     <field name="stock_qty" string="Stock actual" class="hmgt-stock-field-primary" help="Stock real del inventario. Al editarlo y guardar, se repone/ajusta automáticamente en inventario."/>
                                     <field name="stock_real_qty" string="Stock real total" readonly="1" class="hmgt-stock-field-primary"/>
