@@ -277,7 +277,11 @@ class ResPartner(models.Model):
     @api.depends('company_id')
     def _compute_available_peppol_eas(self):
         # TO OVERRIDE
-        self.available_peppol_eas = list(dict(self._fields['peppol_eas'].selection))
+        peppol_eas_field = self._fields.get('peppol_eas')
+        if peppol_eas_field and hasattr(peppol_eas_field, 'selection') and peppol_eas_field.selection:
+            self.available_peppol_eas = list(dict(peppol_eas_field.selection))
+        else:
+            self.available_peppol_eas = []
 
     def _build_error_peppol_endpoint(self, eas, endpoint):
         """ This function contains all the rules regarding the peppol_endpoint."""
