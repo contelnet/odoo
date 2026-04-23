@@ -329,6 +329,13 @@ class Product(models.Model):
         compute="_compute_stock_activity_summary",
         readonly=True,
     )
+    
+    service_sales_count = fields.Float(
+        string="Contador de Ventas",
+        compute="_compute_service_sales_count",
+        readonly=True,
+        help="Número total de unidades vendidas (solo para Servicios y Software)",
+    )
     stock_last_move_ref = fields.Char(
         string="Referencia último movimiento",
         compute="_compute_stock_activity_summary",
