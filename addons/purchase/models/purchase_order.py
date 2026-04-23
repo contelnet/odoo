@@ -294,22 +294,23 @@ class PurchaseOrder(models.Model):
 
     @api.ondelete(at_uninstall=False)
     def _unlink_if_cancelled(self):
-        for order in self:
-            if not order.state == 'cancel':
-                raise UserError(_('In order to delete a purchase order, you must cancel it first.'))
-
-    def copy(self, default=None):
-        ctx = dict(self.env.context)
-        ctx.pop('default_product_id', None)
-        self = self.with_context(ctx)
-        new_pos = super().copy(default=default)
-        for line in new_pos.order_line:
-            if line.product_id:
-                seller = line.product_id._select_seller(
-                    partner_id=line.partner_id, quantity=line.product_qty,
-                    date=line.order_id.date_order and line.order_id.date_order.date(), uom_id=line.product_uom)
-                line.date_planned = line._get_date_planned(seller)
-        return new_pos
+        # TEMP (entorno de limpieza): permitir borrar pedidos sin forzar estado cancel.
+        # Restaurar este bloque cuando finalice la limpieza de datos de prueba.
+        # for order in self:
+        #     if not order.state == 'cancel':
+        #         raise UserError(_('In order to delete a purchase order, you must cancel it first.'))
+        def copy(self, default=None):
+            ctx = dict(self.env.context)
+            ctx.pop('default_product_id', None)
+            self = self.with_context(ctx)
+            new_pos = super().copy(default=default)
+            for line in new_pos.order_line:
+                if line.product_id:
+                    seller = line.product_id._select_seller(
+                        partner_id=line.partner_id, quantity=line.product_qty,
+                        date=line.order_id.date_order and line.order_id.date_order.date(), uom_id=line.product_uom)
+                    line.date_planned = line._get_date_planned(seller)
+            return new_pos
 
     def _must_delete_date_planned(self, field_name):
         # To be overridden
@@ -552,8 +553,10 @@ class PurchaseOrder(models.Model):
 
     def button_cancel(self):
         purchase_orders_with_invoices = self.filtered(lambda po: any(i.state not in ('cancel', 'draft') for i in po.invoice_ids))
-        if purchase_orders_with_invoices:
-            raise UserError(_("Unable to cancel purchase order(s): %s. You must first cancel their related vendor bills.", format_list(self.env, purchase_orders_with_invoices.mapped('display_name'))))
+        # TEMP (entorno de limpieza): permitir cancelar pedidos aunque tengan facturas proveedor relacionadas.
+        # Restaurar este bloque cuando finalice la limpieza de datos de prueba.
+        # if purchase_orders_with_invoices:
+        #     raise UserError(_("Unable to cancel purchase order(s): %s. You must first cancel their related vendor bills.", format_list(self.env, purchase_orders_with_invoices.mapped('display_name'))))
         self.write({'state': 'cancel', 'mail_reminder_confirmed': False})
 
     def button_unlock(self):

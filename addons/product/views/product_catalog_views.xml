@@ -100,21 +100,12 @@
                             />
                             <div class="hmgt-product-stock-panel">
                                 <div class="hmgt-product-stock-grid">
-                                    <field name="stock_qty" string="Stock actual" class="hmgt-stock-field-primary" help="Stock real del inventario. Al editarlo y guardar, se repone/ajusta automáticamente en inventario."/>
-                                    <field name="stock_real_qty" string="Stock real total" readonly="1" class="hmgt-stock-field-primary"/>
-                                    <field name="stock_location_id" string="Ubicación de inventario" options="{'no_create': True}" class="hmgt-stock-field-secondary"/>
+                                    <field name="stock_qty" string="Stock actual" class="hmgt-stock-field-primary" help="Stock calculado automáticamente por movimientos de inventario (compras/entradas/salidas)."/>
                                     <field name="stock_initial_qty" string="Stock inicial" class="hmgt-stock-field-secondary" invisible="stock_initial_locked" help="Carga inicial única del producto. Al guardarlo se aplica en stock actual y luego se bloquea."/>
-                                    <field name="stock_initial_applied_qty" string="Stock inicial aplicado" class="hmgt-stock-field-secondary" readonly="1" invisible="not stock_initial_locked"/>
+                                    <field name="stock_initial_applied_qty" string="Stock inicial" class="hmgt-stock-field-secondary" readonly="1" invisible="not stock_initial_locked"/>
                                 </div>
-                                <div class="hmgt-stock-movement-summary">
-                                    <field name="stock_activity_period" string="Periodo"/>
-                                    <field name="stock_in_today_qty" string="Entradas hoy" readonly="1"/>
-                                    <field name="stock_out_today_qty" string="Salidas hoy" readonly="1"/>
-                                    <field name="stock_last_move_at" string="Último movimiento" readonly="1"/>
-                                    <field name="stock_last_move_ref" string="Referencia" readonly="1"/>
-                                </div>
-                                <p class="text-muted mb-0 hmgt-stock-help-text" invisible="stock_initial_locked">Cualquier cambio guardado en este bloque actualiza automáticamente el inventario interno en la ubicación seleccionada.</p>
-                                <p class="text-muted mb-0 hmgt-stock-help-text" invisible="not stock_initial_locked">El stock inicial ya está aplicado. Desde ahora, el crecimiento por compras se refleja en Stock actual automáticamente.</p>
+                                <p class="text-muted mb-0 hmgt-stock-help-text" invisible="stock_initial_locked">Define el stock inicial una sola vez. Después, el stock se actualizará automáticamente por movimientos de compra/almacén.</p>
+                                <p class="text-muted mb-0 hmgt-stock-help-text" invisible="not stock_initial_locked">El stock inicial ya está aplicado. A partir de ahora, el stock se actualizará automáticamente con las compras y movimientos.</p>
                             </div>
                         </group>
                         <group string="Precios y proveedor">
@@ -283,7 +274,7 @@
                 <field name="supplier_partner_id" optional="hide" />
                 <field name="supplier_reference" optional="hide" />
                 <field name="stock_qty" string="Stock actual" optional="show" />
-                <field name="stock_initial_qty" string="Stock inicial" optional="show" />
+                <field name="stock_initial_applied_qty" string="Stock inicial" optional="show" />
                 <field
                     name="standard_price"
                     string="Precio de compra"

@@ -311,8 +311,8 @@ class Product(models.Model):
         string="Stock",
         compute="_compute_stock_qty",
         digits="Product Unit of Measure",
-        readonly=False,
-        help="Stock real disponible en inventario. Si lo editas, se ajusta automáticamente en el inventario interno.",
+        readonly=True,
+        help="Stock disponible calculado por movimientos de inventario (compras/entradas/salidas).",
     )
     stock_real_qty = fields.Float(
         string="Stock real total",
@@ -822,8 +822,6 @@ class Product(models.Model):
             return
         if "stock_initial_qty" in vals:
             self._inverse_stock_initial_qty()
-        if "stock_qty" in vals:
-            self._inverse_stock_qty()
 
     def action_open_inventory_quants(self):
         self.ensure_one()
@@ -1064,7 +1062,6 @@ class Product(models.Model):
             stock_sync_map.append(
                 {
                     "stock_initial_qty": vals.get("stock_initial_qty") if "stock_initial_qty" in vals else None,
-                    "stock_qty": vals.get("stock_qty") if "stock_qty" in vals else None,
                 }
             )
             if (
