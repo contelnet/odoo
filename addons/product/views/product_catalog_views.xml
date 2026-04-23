@@ -102,6 +102,7 @@
                                 <div class="hmgt-product-stock-grid">
                                     <field name="stock_initial_qty" string="Stock Inicial" class="hmgt-stock-field-secondary" invisible="stock_initial_locked" help="Carga inicial única del producto. Al guardarlo se aplica en stock real y luego se bloquea."/>
                                     <field name="stock_real_qty" string="Stock Real" class="hmgt-stock-field-primary" readonly="1" help="Stock total disponible (inicial + compras)."/>
+                                    <field name="service_sales_count" string="Contador ventas" class="hmgt-stock-field-secondary" readonly="1" invisible="product_business_type not in ('service','software')" help="Total acumulado vendido para servicios y software confirmados."/>
                                 </div>
                                 <p class="text-muted mb-0 hmgt-stock-help-text" invisible="stock_initial_locked">Define el stock inicial una sola vez. Después, aparecerá en Stock Real.</p>
                                 <p class="text-muted mb-0 hmgt-stock-help-text" invisible="not stock_initial_locked">El stock inicial ya está aplicado y sumado a Stock Real.</p>

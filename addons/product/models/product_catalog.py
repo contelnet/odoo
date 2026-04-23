@@ -629,6 +629,47 @@ class Product(models.Model):
             else:
                 product.stock_real_qty = float(getattr(variant, "qty_available", 0.0) or 0.0)
 
+    @api.depends("product_business_type", "product_variant_ids")
+    def _compute_service_sales_count(self):
+        has_sale_line = self._is_model_available("sale.order.line")
+        has_ot_line = self._is_model_available("helpdesk.ticket.ot.product.line")
+        SaleOrderLine = self.env["sale.order.line"].sudo() if has_sale_line else False
+        OTLine = self.env["helpdesk.ticket.ot.product.line"].sudo() if has_ot_line else False
+
+        for product in self:
+            product.service_sales_count = 0.0
+            if (
+                not product.id
+                or product.product_business_type not in ("service", "software")
+                or not product.product_variant_ids
+            ):
+                continue
+
+            total_qty = 0.0
+
+            if has_sale_line:
+                sale_lines = SaleOrderLine.search(
+                    [
+                        ("product_id", "in", product.product_variant_ids.ids),
+                        ("display_type", "=", False),
+                        ("state", "in", ("sale", "done")),
+                    ]
+                )
+                total_qty += sum(sale_lines.mapped("product_uom_qty"))
+
+            if has_ot_line:
+                ot_lines = OTLine.search(
+                    [
+                        ("product_id", "in", product.product_variant_ids.ids),
+                        ("line_role", "=", "outgoing"),
+                        ("ot_id.ot_type", "=", "external"),
+                        ("ot_id.invoice_id", "!=", False),
+                    ]
+                )
+                total_qty += sum(ot_lines.mapped("quantity"))
+
+            product.service_sales_count = total_qty
+
     @api.depends("type", "stock_activity_period", "stock_initial_applied_qty")
     def _compute_stock_activity_summary(self):
         has_move_line = self._is_model_available("stock.move.line")
