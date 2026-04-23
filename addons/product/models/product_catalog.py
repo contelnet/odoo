@@ -99,21 +99,8 @@ class Product(models.Model):
     @api.model
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
-        
-        # Only apply defaults for NEW records (when id is not in values)
-        # This prevents overwriting user-selected taxes on existing products
-        is_new_record = not res.get('id')
-
-        if is_new_record and not res.get("taxes_id"):
-            sale_tax = self._default_sale_taxes()
-            if sale_tax:
-                res["taxes_id"] = [(6, 0, sale_tax.ids)]
-
-        if is_new_record and not res.get("supplier_taxes_id"):
-            purchase_tax = self._default_purchase_taxes()
-            if purchase_tax:
-                res["supplier_taxes_id"] = [(6, 0, purchase_tax.ids)]
-
+        # Impuestos se asignan vía default=lambda en los campos y en create()
+        # No manipular aquí para evitar conflictos con registros _unknown
         return res
 
     taxes_id = fields.Many2many(
