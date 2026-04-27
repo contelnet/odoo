@@ -880,12 +880,17 @@ class Product(models.Model):
         }
 
 
-    @api.depends("purchase_total", "sale_total", "canon_amount")
+    @api.depends("standard_price", "purchase_tax_amount", "canon_amount", "list_price", "sale_tax_amount")
     def _compute_totals_with_canon(self):
         for product in self:
+            base_purchase = product.standard_price or 0.0
+            tax_purchase = product.purchase_tax_amount or 0.0
             canon = product.canon_amount or 0.0
-            product.purchase_total_with_canon = (product.purchase_total or 0.0) + canon
-            product.sale_total_with_canon = (product.sale_total or 0.0) + canon
+            product.purchase_total_with_canon = base_purchase + tax_purchase + canon
+
+            base_sale = product.list_price or 0.0
+            tax_sale = product.sale_tax_amount or 0.0
+            product.sale_total_with_canon = base_sale + tax_sale + canon
 
     @api.depends(
         "standard_price",
