@@ -934,9 +934,8 @@ class Product(models.Model):
 
         if percent:
             return percent
-
-        default_tax = self._default_21_tax(tax_use)
-        return float(getattr(default_tax, "amount", 0.0) or 0.0)
+        # Si no hay impuestos aplicados, no forzar 21% en pantalla.
+        return 0.0
 
     @api.depends(
         "standard_price",
@@ -971,21 +970,66 @@ class Product(models.Model):
 
     @api.onchange("supplier_taxes_id", "taxes_id")
     def _onchange_catalog_taxes_filter(self):
-        for product in self:
-            if product.supplier_taxes_id and "type_tax_use" in product.supplier_taxes_id._fields:
-                valid_purchase_taxes = product.supplier_taxes_id.filtered(
-                    lambda tax: tax.type_tax_use == "purchase"
-                )
-                # No vaciar silenciosamente cuando el formulario trae registros temporales.
-                if valid_purchase_taxes:
-                    product.supplier_taxes_id = valid_purchase_taxes
-            if product.taxes_id and "type_tax_use" in product.taxes_id._fields:
-                valid_sale_taxes = product.taxes_id.filtered(
-                    lambda tax: tax.type_tax_use == "sale"
-                )
-                # No vaciar silenciosamente cuando el formulario trae registros temporales.
-                if valid_sale_taxes:
-                    product.taxes_id = valid_sale_taxes
+        # No tocar valores en onchange: algunos clientes web envían registros temporales
+        # y filtrar aquí puede provocar que desaparezcan visualmente tras guardar.
+        return
+
+    @api.model
+    def _extract_tax_ids_from_m2m_value(self, raw_value):
+        """Extrae IDs válidos de un valor M2M (ids/comandos) de forma robusta."""
+        if not raw_value:
+            return [], False
+
+        valid_ids = []
+        explicit_clear = False
+
+        if hasattr(raw_value, "ids"):
+            valid_ids.extend([rid for rid in raw_value.ids if isinstance(rid, int) and rid > 0])
+            return list(dict.fromkeys(valid_ids)), False
+
+        commands = raw_value if isinstance(raw_value, (list, tuple)) else [raw_value]
+        for cmd in commands:
+            if hasattr(cmd, "id"):
+                if isinstance(cmd.id, int) and cmd.id > 0:
+                    valid_ids.append(cmd.id)
+                continue
+
+            if isinstance(cmd, int):
+                if cmd > 0:
+                    valid_ids.append(cmd)
+                continue
+
+            if not isinstance(cmd, (list, tuple)) or not cmd:
+                continue
+
+            command_type = cmd[0]
+            if command_type == 5:
+                explicit_clear = True
+                continue
+
+            if command_type in (1, 2, 3, 4):
+                if len(cmd) >= 2:
+                    record_id = cmd[1]
+                    if hasattr(record_id, "id"):
+                        record_id = record_id.id
+                    if isinstance(record_id, str) and record_id.isdigit():
+                        record_id = int(record_id)
+                    if isinstance(record_id, int) and record_id > 0:
+                        valid_ids.append(record_id)
+                continue
+
+            if command_type == 6 and len(cmd) >= 3 and isinstance(cmd[2], (list, tuple)):
+                if len(cmd[2]) == 0:
+                    explicit_clear = True
+                for record_id in cmd[2]:
+                    if hasattr(record_id, "id"):
+                        record_id = record_id.id
+                    if isinstance(record_id, str) and record_id.isdigit():
+                        record_id = int(record_id)
+                    if isinstance(record_id, int) and record_id > 0:
+                        valid_ids.append(record_id)
+
+        return list(dict.fromkeys(valid_ids)), explicit_clear
 
     @api.constrains("supplier_taxes_id", "taxes_id")
     def _check_catalog_taxes_filter(self):
@@ -1207,6 +1251,25 @@ class Product(models.Model):
         return products
 
     def write(self, vals):
+        if vals and self._is_model_available("account.tax"):
+            for many2many_field in ("supplier_taxes_id", "taxes_id"):
+                if many2many_field not in vals:
+                    continue
+                raw_value = vals[many2many_field]
+                if not raw_value:
+                    # Permitir vaciar explícitamente si el usuario lo hace a propósito.
+                    continue
+                try:
+                    clean_ids, explicit_clear = self._extract_tax_ids_from_m2m_value(raw_value)
+                except Exception:
+                    clean_ids, explicit_clear = [], False
+
+                if clean_ids:
+                    vals[many2many_field] = [(6, 0, clean_ids)]
+                elif not explicit_clear:
+                    # Si no hay IDs válidos ni vaciado explícito, no tocar impuestos existentes.
+                    vals.pop(many2many_field, None)
+
         if "has_imei" in vals and not vals.get("has_imei"):
             vals["imei_number"] = False
         if (
