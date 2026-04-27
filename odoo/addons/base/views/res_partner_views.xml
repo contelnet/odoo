@@ -151,10 +151,27 @@
                   A partner with the same <span><field name="company_registry_label" /></span> already exists (<field name="same_company_registry_partner_id" context="{'show_address': False, 'show_vat': False}"/>), are you sure you want to create a new one?
                 </div>
                 <sheet>
-                    <div class="oe_button_box" name="button_box"/>
+                    <div class="oe_button_box" name="button_box">
+                        <field name="can_create_employee_from_contact" invisible="1"/>
+                        <button
+                            name="action_create_employee_from_contact"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-id-card-o"
+                            groups="hr.group_hr_user"
+                            attrs="{'invisible': [('can_create_employee_from_contact', '=', False)]}"
+                        >
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_text">Crear empleado</span>
+                            </div>
+                        </button>
+                    </div>
                     <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
                     <field name="image_1920" widget='image' class="oe_avatar" options='{"preview_image": "avatar_128"}'/>
                     <div class="oe_title mb24">
+                        <t t-if="record.employee.raw_value">
+                            <span class="badge bg-success" style="font-size:1em; margin-left:10px;">Empleado</span>
+                        </t>
                         <field name="company_type" widget="radio" options="{'horizontal': true}"/>
                         <h1>
                             <field id="company" options="{'line_breaks': False}" widget="text" class="text-break" name="name" default_focus="1" placeholder="e.g. Lumber Inc" invisible="not is_company" required="type == 'contact'"/>
@@ -398,6 +415,9 @@
             <field name="model">res.partner</field>
             <field name="arch" type="xml">
                 <kanban sample="1">
+                    <templates>
+                        <t t-name="card" class="flex-row">
+                            <widget name="web_ribbon" title="Empleado" bg_color="text-bg-success" invisible="not record.employee.raw_value"/>
                     <field name="avatar_128"/>
                     <field name="is_company"/>
                     <field name="active"/>
@@ -432,6 +452,8 @@
                                 <field name="email" class="text-truncate"/>
                                 <footer><div/></footer>
                             </main>
+                        </t>
+                    </templates>
                         </t>
                     </templates>
                 </kanban>
