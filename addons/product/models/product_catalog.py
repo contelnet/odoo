@@ -1256,9 +1256,17 @@ class Product(models.Model):
                 if many2many_field not in vals:
                     continue
                 raw_value = vals[many2many_field]
-                if not raw_value:
-                    # Permitir vaciar explícitamente si el usuario lo hace a propósito.
+                
+                # Si es explícitamente False/None, permitir limpieza
+                if raw_value is False or raw_value is None:
+                    vals[many2many_field] = False
                     continue
+                
+                # Si es lista/tuple vacía, es limpieza explícita
+                if isinstance(raw_value, (list, tuple)) and not raw_value:
+                    vals[many2many_field] = False
+                    continue
+                
                 try:
                     clean_ids, explicit_clear = self._extract_tax_ids_from_m2m_value(raw_value)
                 except Exception:
@@ -1266,9 +1274,31 @@ class Product(models.Model):
 
                 if clean_ids:
                     vals[many2many_field] = [(6, 0, clean_ids)]
-                elif not explicit_clear:
+                elif explicit_clear:
+                    # Limpieza explícita detectada (comando 5 o comando 6 con lista vacía)
+                    vals[many2many_field] = False
+                else:
                     # Si no hay IDs válidos ni vaciado explícito, no tocar impuestos existentes.
                     vals.pop(many2many_field, None)
+        
+        # Proteger supplier_partner_id: si no se envía explícitamente, no limpiarlo
+        if "supplier_partner_id" in vals:
+            raw_value = vals["supplier_partner_id"]
+            # Si es False, None, o 0, es limpieza explícita (está bien)
+            # Si es un ID válido > 0, mantenerlo
+            # Si es algo raro, intentar extraer el ID
+            if raw_value and not isinstance(raw_value, (int, list, tuple)):
+                if hasattr(raw_value, "id"):
+                    vals["supplier_partner_id"] = raw_value.id
+                elif isinstance(raw_value, (list, tuple)) and raw_value:
+                    # Comando many2one (4, partner_id) o similar
+                    if isinstance(raw_value[0], int) and raw_value[0] in (4, 1, 2, 3):
+                        if len(raw_value) > 1:
+                            vals["supplier_partner_id"] = raw_value[1]
+                        else:
+                            vals.pop("supplier_partner_id", None)
+                    elif isinstance(raw_value[0], int) and raw_value[0] > 0:
+                        vals["supplier_partner_id"] = raw_value[0]
 
         if "has_imei" in vals and not vals.get("has_imei"):
             vals["imei_number"] = False
