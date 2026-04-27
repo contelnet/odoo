@@ -973,13 +973,19 @@ class Product(models.Model):
     def _onchange_catalog_taxes_filter(self):
         for product in self:
             if product.supplier_taxes_id and "type_tax_use" in product.supplier_taxes_id._fields:
-                product.supplier_taxes_id = product.supplier_taxes_id.filtered(
+                valid_purchase_taxes = product.supplier_taxes_id.filtered(
                     lambda tax: tax.type_tax_use == "purchase"
                 )
+                # No vaciar silenciosamente cuando el formulario trae registros temporales.
+                if valid_purchase_taxes:
+                    product.supplier_taxes_id = valid_purchase_taxes
             if product.taxes_id and "type_tax_use" in product.taxes_id._fields:
-                product.taxes_id = product.taxes_id.filtered(
+                valid_sale_taxes = product.taxes_id.filtered(
                     lambda tax: tax.type_tax_use == "sale"
                 )
+                # No vaciar silenciosamente cuando el formulario trae registros temporales.
+                if valid_sale_taxes:
+                    product.taxes_id = valid_sale_taxes
 
     @api.constrains("supplier_taxes_id", "taxes_id")
     def _check_catalog_taxes_filter(self):
@@ -1096,6 +1102,7 @@ class Product(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         install_mode = bool(self.env.context.get("install_mode"))
+        has_account_tax = self._is_model_available("account.tax")
         stock_sync_map = []
         for vals in vals_list:
             stock_sync_map.append(
@@ -1118,6 +1125,11 @@ class Product(models.Model):
                 if many2many_field not in vals:
                     continue
 
+                # Si el modelo de impuestos no está disponible, limpiar para evitar _unknown.
+                if not has_account_tax:
+                    vals[many2many_field] = False
+                    continue
+
                 raw_value = vals[many2many_field]
                 if not raw_value:
                     vals[many2many_field] = False
@@ -1127,7 +1139,9 @@ class Product(models.Model):
 
                 try:
                     if hasattr(raw_value, "ids"):
-                        valid_ids.extend([rid for rid in raw_value.ids if isinstance(rid, int) and rid > 0])
+                        valid_ids.extend(
+                            [rid for rid in raw_value.ids if isinstance(rid, int) and rid > 0]
+                        )
                     else:
                         commands = raw_value if isinstance(raw_value, (list, tuple)) else [raw_value]
                         for cmd in commands:
@@ -1150,6 +1164,8 @@ class Product(models.Model):
                                     record_id = cmd[1]
                                     if hasattr(record_id, "id"):
                                         record_id = record_id.id
+                                    if isinstance(record_id, str) and record_id.isdigit():
+                                        record_id = int(record_id)
                                     if isinstance(record_id, int) and record_id > 0:
                                         valid_ids.append(record_id)
                             elif command_type == 6:
@@ -1157,13 +1173,19 @@ class Product(models.Model):
                                     for record_id in cmd[2]:
                                         if hasattr(record_id, "id"):
                                             record_id = record_id.id
+                                        if isinstance(record_id, str) and record_id.isdigit():
+                                            record_id = int(record_id)
                                         if isinstance(record_id, int) and record_id > 0:
                                             valid_ids.append(record_id)
                 except Exception:
+                    # No tocar el valor original si no podemos normalizarlo.
                     continue
 
                 clean_ids = list(dict.fromkeys(valid_ids))
-                vals[many2many_field] = [(6, 0, clean_ids)] if clean_ids else False
+                if clean_ids:
+                    vals[many2many_field] = [(6, 0, clean_ids)]
+                # Si no pudimos extraer IDs válidos, mantener el valor original
+                # para que el ORM procese correctamente comandos nativos.
 
 
             if "taxes_id" not in vals:
