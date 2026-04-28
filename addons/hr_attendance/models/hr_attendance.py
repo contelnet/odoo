@@ -38,7 +38,7 @@ class HrAttendance(models.Model):
         readonly=True)
     manager_id = fields.Many2one(comodel_name='hr.employee', related="employee_id.parent_id", readonly=True,
         export_string_translation=False)
-    check_in = fields.Datetime(string="Check In", default=lambda self: datetime.now(pytz.timezone('Europe/Madrid')), required=True, tracking=True)
+    check_in = fields.Datetime(string="Check In", default=fields.Datetime.now, required=True, tracking=True)
     check_out = fields.Datetime(string="Check Out", tracking=True)
     worked_hours = fields.Float(string='Worked Hours', compute='_compute_worked_hours', store=True, readonly=True)
     color = fields.Integer(compute='_compute_color')
