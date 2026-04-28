@@ -175,38 +175,32 @@ class HrEmployee(models.Model):
             Check Out: modify check_out field of appropriate attendance record
         """
         self.ensure_one()
-        # Get the employee's timezone (with Europe/Madrid as default based on TZ env var)
-        employee_tz = pytz.timezone(self.tz or 'UTC')
-        # datetime.now() respects the TZ environment variable set to Europe/Madrid
-        # so it returns local time. Localize it as employee timezone, then convert to UTC
-        now_local = fields.Datetime.now()  # This is in Madrid time due to TZ=Europe/Madrid
-        now_aware = employee_tz.localize(now_local)  # Interpret as employee's local time
-        now_utc_aware = now_aware.astimezone(pytz.utc)  # Convert to UTC
-        action_date = now_utc_aware.replace(tzinfo=None)  # Store as naive UTC for Odoo
+        # Odoo espera UTC naive en la base de datos
+        now_utc = fields.Datetime.now()  # Esto ya es UTC naive
 
         if self.attendance_state != 'checked_in':
             if geo_information:
                 vals = {
                     'employee_id': self.id,
-                    'check_in': action_date,
+                    'check_in': now_utc,
                     **{'in_%s' % key: geo_information[key] for key in geo_information}
                 }
             else:
                 vals = {
                     'employee_id': self.id,
-                    'check_in': action_date,
+                    'check_in': now_utc,
                 }
             return self.env['hr.attendance'].create(vals)
         attendance = self.env['hr.attendance'].search([('employee_id', '=', self.id), ('check_out', '=', False)], limit=1)
         if attendance:
             if geo_information:
                 attendance.write({
-                    'check_out': action_date,
+                    'check_out': now_utc,
                     **{'out_%s' % key: geo_information[key] for key in geo_information}
                 })
             else:
                 attendance.write({
-                    'check_out': action_date
+                    'check_out': now_utc
                 })
         else:
             raise exceptions.UserError(_(
