@@ -15,9 +15,8 @@
                     <meta http-equiv="X-UA-Compatible"
                           content="IE=9; IE=8; IE=7; IE=EDGE"/>
                     <style type="text/css">
-                        <t t-set="color_company"
-                           t-value="company.email_secondary_color or '#714B67'">
-                        /* Remove space around the email design. */
+                                <t t-set="color_company" t-value="company.email_secondary_color or '#714B67'"/>
+                                /* Remove space around the email design. */
             html,
             body {
                 margin: 0 auto !important;
@@ -60,9 +59,7 @@
                 white-space: nowrap;
             }
             .td_button_connect {
-                background-color:
-                        <t t-out="color_company">
-                        ;
+                background-color: <t t-out="color_company"/>;
             }
             #button_connect {
                 color: #ffffff;
@@ -91,9 +88,7 @@
                 line-height: 25px;
             }
             .tip_button {
-                background-color:
-                        <t t-out="color_company">
-                        ;
+                background-color: <t t-out="color_company"/>;
                 border-radius: 3px;
                 padding: 10px;
                 text-decoration: none;
@@ -153,9 +148,7 @@
             }
             .odoo_link_text {
                 font-weight: bold;
-                color:
-                        <t t-out="color_company">
-                        ;
+                color: <t t-out="color_company"/>;
             }
             .run_business {
                 color: #374151;
