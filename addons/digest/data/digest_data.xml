@@ -265,7 +265,7 @@
                     </style>
                 </head>
                 <body>
-                    <t t-out="body">
+                    <t t-out="body"/>
                 </body>
             </html>
         </template>
@@ -316,9 +316,9 @@
                                             class="p0"
                                             colspan="2">
                                             <div class="header_title">
-                                                <p t-esc="title">
-                                                <p t-if="sub_title"
-                                                   t-esc="sub_title">
+                                                                <p t-esc="title"></p>
+                                                                <p t-if="sub_title"
+                                                                    t-esc="sub_title"></p>
                                             </div>
                                         </td>
                                     </tr>
@@ -326,8 +326,8 @@
                                         <td style="padding: 10px 0px 20px 20px;"
                                             class="p0"
                                             colspan="2">
-                                            <span t-esc="formatted_date"
-                                                  class="header_date">
+                                              <span t-esc="formatted_date"
+                                                  class="header_date"/>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -356,8 +356,7 @@
                                             <table>
                                                 <tbody>
                                                     <tr>
-                                                        <td t-out="tip">
-                                                        </td>
+                                                        <td t-out="tip"/>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -477,18 +476,14 @@
                                                                 Sent by
                                                                 <a href="https://www.odoo.com"
                                                                    target="_blank">
-                                                                    <span class="odoo_link_text">
-                                                                        Odoo
-                                                                    </span>
+                                                                    <span class="odoo_link_text">Odoo</span>
                                                                 </a>
                                                                 <t t-if="unsubscribe_token">
                                                                     –
                                                                     <a t-attf-href="/digest/#{object.id}/unsubscribe?token=#{unsubscribe_token}&amp;user_id=#{user.id}"
                                                                        target="_blank"
                                                                        style="text-decoration: none;">
-                                                                        <span style="color: #878d97;">
-                                                                            Unsubscribe
-                                                                        </span>
+                                                                        <span style="color: #878d97;">Unsubscribe</span>
                                                                     </a>
                                                                 </t>
                                                                 <t t-elif="object and object._name == 'digest.digest'">
@@ -496,9 +491,7 @@
                                                                     <a t-att-href="'/odoo/digest.digest/%s' % object.id"
                                                                        target="_blank"
                                                                        style="text-decoration: none;">
-                                                                        <span style="color: #878d97;">
-                                                                            Unsubscribe
-                                                                        </span>
+                                                                        <span style="color: #878d97;">Unsubscribe</span>
                                                                     </a>
                                                                 </t>
                                                             </div>
@@ -522,21 +515,17 @@
                             <table align="center">
                                 <tbody>
                                     <tr>
-                                        <div id="footer">
-                                            <p style="font-weight: bold;"
-                                               t-esc="company.name"/>
-                                            <p class="by_odoo"
-                                               id="powered">
-                                                Powered by
-                                                <a href="https://www.odoo.com"
-                                                   target="_blank"
-                                                   class="odoo_link">
-                                                    <span class="odoo_link_text">
-                                                        Odoo
-                                                    </span>
-                                                </a>
-                                            </p>
-                                        </div>
+                                        <td>
+                                            <div id="footer">
+                                                <p style="font-weight: bold;" t-esc="company.name"></p>
+                                                <p class="by_odoo" id="powered">
+                                                    Powered by
+                                                    <a href="https://www.odoo.com" target="_blank" class="odoo_link">
+                                                        <span class="odoo_link_text">Odoo</span>
+                                                    </a>
+                                                </p>
+                                            </div>
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>

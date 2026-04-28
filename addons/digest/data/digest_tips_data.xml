@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <odoo>
-    <data noupdate="1">
+    <data noupdate="0">
         <record id="digest_digest_default"
                 model="digest.digest">
             <field name="name">
@@ -9,8 +9,8 @@
             <field name="periodicity">
                 daily
             </field>
-                 <field name="user_ids" eval="[(4, ref('base.user_admin'))]"/>
-                 <field name="next_run_date">2026-04-28</field>
+            <field name="user_ids" eval="[(4, ref('base.user_admin'))]"/>
+            <field name="next_run_date">2026-04-28</field>
             <field name="kpi_res_users_connected">
                 True
             </field>
@@ -18,8 +18,6 @@
                 True
             </field>
         </record>
-    </data>
-    <data noupdate="0">
         <record id="digest_tip_digest_0"
                 model="digest.tip">
             <field name="name">
@@ -165,8 +163,8 @@ Follow a project / sales team to keep track of this project's tasks / this team'
                         Feeling eye strain? Give your eyes a break by switching to Dark Mode.
                     </p>
                     <img src="https://download.odoocdn.com/digests/digest/static/src/img/18-web-dark-theme.gif"
-                         width="540"
-                         class="illustration_border">
+                        width="540"
+                        class="illustration_border"/>
                 </div>
             </field>
         </record>
@@ -189,8 +187,8 @@ Follow a project / sales team to keep track of this project's tasks / this team'
                         Click and hold on a Menu Item to reorder your Apps to your liking.
                     </p>
                     <img src="https://download.odoocdn.com/digests/digest/static/src/img/18-web-app-order.gif"
-                         width="540"
-                         class="illustration_border">
+                        width="540"
+                        class="illustration_border"/>
                 </div>
             </field>
         </record>
