@@ -8,6 +8,8 @@ COPY ./odoo/addons /usr/lib/python3/dist-packages/odoo/addons
 
 COPY ./helpdesk /mnt/extra-addons
 
+ENV TZ=Europe/Madrid
+
 USER odoo
 
 RUN echo "list_db = False" >> /etc/odoo/odoo.conf
