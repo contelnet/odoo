@@ -113,7 +113,7 @@
                             </div>
                         </div>
 
-                        <t t-set="display_discount" t-value="any(l.discount for l in o.invoice_line_ids)"/>
+                        <t t-set="display_discount" t-value="True"/>
                         <div class="oe_structure"></div>
                         <t t-set="has_long_desc" t-value="any(line.name and line.name.count('\n') > 30 for line in o.invoice_line_ids if line.name)"/>
                         <table class="o_has_total_table table o_main_table table-borderless mb-0" name="invoice_line_table">
@@ -231,6 +231,38 @@
                                                     </t>
                                                 </t>
                                             </t>
+                                        </table>
+                                        <table class="o_total_table table table-borderless avoid-page-break-inside">
+                                            <tr>
+                                                <td><strong>Base Imponible</strong></td>
+                                                <td class="text-end">
+                                                    <span t-esc="o.amount_untaxed"/>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>IVA Productos</strong></td>
+                                                <td class="text-end">
+                                                    <span t-esc="o._get_iva_productos()"/>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Canon</strong></td>
+                                                <td class="text-end">
+                                                    <span t-field="o.canon_total_ote" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Mano de Obra</strong></td>
+                                                <td class="text-end">
+                                                    <span t-field="o.labor_total_ote" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Total</strong></td>
+                                                <td class="text-end">
+                                                    <span t-field="o.amount_total" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                                </td>
+                                            </tr>
                                         </table>
                                     </div>
                                 </div>

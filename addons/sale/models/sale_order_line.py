@@ -14,6 +14,36 @@ from odoo.tools.translate import _
 
 
 class SaleOrderLine(models.Model):
+
+    @api.onchange('product_id')
+    def _onchange_product_id_catalog_taxes(self):
+        """Forzar impuestos desde catálogo al seleccionar producto."""
+        if self.product_id:
+            self.tax_id = self.product_id.product_tmpl_id.taxes_id
+
+    @api.onchange('product_id')
+    def _onchange_product_id_catalog_price(self):
+        """Forzar precio de venta desde catálogo al seleccionar producto."""
+        if self.product_id:
+            self.price_unit = self.product_id.product_tmpl_id.list_price
+        # Llamar a super si existe lógica previa
+        try:
+            super()._onchange_product_id()
+        except Exception:
+            pass
+
+        supplier_reference = fields.Text(
+            string="Referencia externa proveedor",
+            compute="_compute_supplier_reference",
+            store=False,
+            readonly=True,
+            help="Referencia externa del proveedor en el catálogo de producto."
+        )
+
+        @api.depends('product_id')
+        def _compute_supplier_reference(self):
+            for line in self:
+                line.supplier_reference = line.product_id.product_tmpl_id.supplier_reference or ''
     _name = 'sale.order.line'
     _inherit = 'analytic.mixin'
     _description = "Sales Order Line"
