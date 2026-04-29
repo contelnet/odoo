@@ -4,9 +4,6 @@
         <record id="digest.digest_digest_default" model="digest.digest">
             <field name="kpi_account_total_revenue">True</field>
         </record>
-    </data>
-
-    <data>
         <record id="digest_tip_account_0" model="digest.tip">
             <field name="name">Tip: No need to print, put in an envelop and post your invoices</field>
             <field name="sequence">700</field>
