@@ -418,9 +418,10 @@
                                                 title="This product is archived"
                                                 invisible="state not in ['draft', 'sent'] or not is_product_archived"
                                             />
-                                            <field name="product_id" context="{'form_view_ref': 'product.product_view_form_normalized'}"
+                                            <field name="product_id"
                                                 domain="[('sale_ok', '=', True)]"
                                                 context="{
+                                                    'form_view_ref': 'product.product_view_form_normalized',
                                                     'partner_id': parent.partner_id,
                                                     'quantity': product_uom_qty,
                                                     'pricelist': parent.pricelist_id,
