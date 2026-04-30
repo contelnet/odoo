@@ -245,24 +245,30 @@
                                                     <span t-esc="o._get_iva_productos()"/>
                                                 </td>
                                             </tr>
-                                            <tr>
-                                                <td><strong>Canon OTE</strong></td>
-                                                <td class="text-end">
-                                                    <span t-field="o.canon_total_ote" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td><strong>Mano de Obra OTE</strong></td>
-                                                <td class="text-end">
-                                                    <span t-field="o.labor_total_ote" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td><strong>Canon Total</strong></td>
-                                                <td class="text-end">
-                                                    <span t-field="o.canon_total" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
-                                                </td>
-                                            </tr>
+                                            <t t-if="o.canon_total_ote">
+                                                <tr>
+                                                    <td><strong>Canon OTE</strong></td>
+                                                    <td class="text-end">
+                                                        <span t-field="o.canon_total_ote" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                            <t t-if="o.labor_total_ote">
+                                                <tr>
+                                                    <td><strong>Mano de Obra OTE</strong></td>
+                                                    <td class="text-end">
+                                                        <span t-field="o.labor_total_ote" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                            <t t-if="o.canon_total">
+                                                <tr>
+                                                    <td><strong>Canon</strong></td>
+                                                    <td class="text-end">
+                                                        <span t-field="o.canon_total" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                                    </td>
+                                                </tr>
+                                            </t>
                                             <tr>
                                                 <td><strong>Total</strong></td>
                                                 <td class="text-end">

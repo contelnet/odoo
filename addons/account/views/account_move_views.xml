@@ -7,28 +7,14 @@
             <field name="inherit_id" ref="account.view_move_form"/>
             <field name="arch" type="xml">
                 <xpath expr="//sheet" position="inside">
-                    <div class="o_row mt16" name="ote_footer">
+                    <div class="o_row mt16" name="canon_group_footer">
                         <div class="o_col">
-                            <div class="o_form_label">Canon OTE</div>
+                            <div class="o_form_label">Desglose Canon y Mano de Obra</div>
                         </div>
                         <div class="o_col text-end">
-                            <field name="canon_total_ote" readonly="1" widget="monetary"/>
-                        </div>
-                    </div>
-                    <div class="o_row mt16" name="ote_footer_labor">
-                        <div class="o_col">
-                            <div class="o_form_label">Mano de Obra OTE</div>
-                        </div>
-                        <div class="o_col text-end">
-                            <field name="labor_total_ote" readonly="1" widget="monetary"/>
-                        </div>
-                    </div>
-                    <div class="o_row mt16" name="canon_footer">
-                        <div class="o_col">
-                            <div class="o_form_label">Canon Total</div>
-                        </div>
-                        <div class="o_col text-end">
-                            <field name="canon_total" readonly="1" widget="monetary"/>
+                            <field name="canon_total_ote" readonly="1" widget="monetary" attrs="{'invisible': [('canon_total_ote', '=', 0.0)]}"/>
+                            <field name="labor_total_ote" readonly="1" widget="monetary" attrs="{'invisible': [('labor_total_ote', '=', 0.0)]}"/>
+                            <field name="canon_total" readonly="1" widget="monetary" attrs="{'invisible': [('canon_total', '=', 0.0)]}"/>
                         </div>
                     </div>
                 </xpath>

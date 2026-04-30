@@ -1,5 +1,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+from ..tools.structured_reference import format_structured_reference_iso
+
 import calendar
 from collections import defaultdict
 from contextlib import ExitStack, contextmanager, nullcontext
