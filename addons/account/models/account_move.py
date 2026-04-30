@@ -88,6 +88,11 @@ BYPASS_LOCK_CHECK = object()
 
 
 class AccountMove(models.Model):
+    show_product_prices = fields.Boolean(
+        string="Mostrar precios de productos (OT)",
+        default=True,
+        help="Si está marcado, se mostrarán los precios de los productos en la factura generada desde una OTE."
+    )
 
     _name = "account.move"
     _inherit = ['portal.mixin', 'mail.thread.main.attachment', 'mail.activity.mixin', 'sequence.mixin', 'product.catalog.mixin']

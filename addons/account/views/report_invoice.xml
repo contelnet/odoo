@@ -121,12 +121,12 @@
                                 <tr>
                                     <th name="th_description" class="text-start"><span>Description</span></th>
                                     <th name="th_quantity" class="text-end"><span>Quantity</span></th>
-                                    <th name="th_priceunit" t-attf-class="text-end text-nowrap {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}"><span>Unit Price</span></th>
-                                    <th name="th_discount" t-if="display_discount" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
+                                    <th name="th_priceunit" t-if="o.show_product_prices" t-attf-class="text-end text-nowrap {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}"><span>Unit Price</span></th>
+                                    <th name="th_discount" t-if="display_discount and o.show_product_prices" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
                                         <span>Disc.%</span>
                                     </th>
-                                    <th name="th_taxes" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}"><span>Taxes</span></th>
-                                    <th name="th_subtotal" class="text-end">
+                                    <th name="th_taxes" t-if="o.show_product_prices" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}"><span>Taxes</span></th>
+                                    <th name="th_subtotal" t-if="o.show_product_prices" class="text-end">
                                         <span>Amount</span>
                                     </th>
                                 </tr>
@@ -149,17 +149,17 @@
                                                 <span t-field="line.quantity" class="text-nowrap">3.00</span>
                                                 <span t-field="line.product_uom_id"  groups="uom.group_uom">units</span>
                                             </td>
-                                            <td name="td_price_unit" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
+                                            <td name="td_price_unit" t-if="o.show_product_prices" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
                                                 <span class="text-nowrap" t-field="line.price_unit">9.00</span>
                                             </td>
-                                            <td name="td_discount" t-if="display_discount" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
+                                            <td name="td_discount" t-if="display_discount and o.show_product_prices" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
                                                 <span class="text-nowrap" t-field="line.discount">0</span>
                                             </td>
                                             <t t-set="taxes" t-value="', '.join([(tax.invoice_label or tax.name) for tax in line.tax_ids])"/>
-                                            <td name="td_taxes" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }} {{ 'text-nowrap' if len(taxes) &lt; 10 else '' }}">
+                                            <td name="td_taxes" t-if="o.show_product_prices" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }} {{ 'text-nowrap' if len(taxes) &lt; 10 else '' }}">
                                                 <span t-out="taxes" id="line_tax_ids">Tax 15%</span>
                                             </td>
-                                            <td name="td_subtotal" class="text-end o_price_total">
+                                            <td name="td_subtotal" t-if="o.show_product_prices" class="text-end o_price_total">
                                                 <span class="text-nowrap" t-field="line.price_subtotal">27.00</span>
                                             </td>
                                         </t>
