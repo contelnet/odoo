@@ -12,9 +12,15 @@
                             <div class="o_form_label">Desglose Canon y Mano de Obra</div>
                         </div>
                         <div class="o_col text-end">
-                            <field name="canon_total_ote" readonly="1" widget="monetary" attrs="{'invisible': [('canon_total_ote', '=', 0.0)]}"/>
-                            <field name="labor_total_ote" readonly="1" widget="monetary" attrs="{'invisible': [('labor_total_ote', '=', 0.0)]}"/>
-                            <field name="canon_total" readonly="1" widget="monetary" attrs="{'invisible': [('canon_total', '=', 0.0)]}"/>
+                            <div t-attf-class="o_field_value #{'text-muted' if canon_total_ote == 0.0 else ''}">
+                                <field name="canon_total_ote" readonly="1" widget="monetary"/>
+                            </div>
+                            <div t-attf-class="o_field_value #{'text-muted' if labor_total_ote == 0.0 else ''}">
+                                <field name="labor_total_ote" readonly="1" widget="monetary"/>
+                            </div>
+                            <div t-attf-class="o_field_value #{'text-muted' if canon_total == 0.0 else ''}">
+                                <field name="canon_total" readonly="1" widget="monetary"/>
+                            </div>
                         </div>
                     </div>
                 </xpath>

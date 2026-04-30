@@ -88,11 +88,6 @@ BYPASS_LOCK_CHECK = object()
 
 
 class AccountMove(models.Model):
-    show_product_prices = fields.Boolean(
-        string="Mostrar precios de productos (OT)",
-        default=True,
-        help="Si está marcado, se mostrarán los precios de los productos en la factura generada desde una OTE."
-    )
 
     _name = "account.move"
     _inherit = ['portal.mixin', 'mail.thread.main.attachment', 'mail.activity.mixin', 'sequence.mixin', 'product.catalog.mixin']
@@ -104,6 +99,53 @@ class AccountMove(models.Model):
     _rec_names_search = ['name', 'partner_id.name', 'ref']
     _systray_view = 'activity'
     _mailing_enabled = True
+    
+    canon_total_ote = fields.Monetary(
+        string="Canon OTE",
+        compute="_compute_breakdown_totals",
+        store=False,
+        currency_field="currency_id",
+        help="Total canon OTE en la factura (solo líneas canon OTE, excluye canon normal)."
+        )
+    labor_total_ote = fields.Monetary(
+        string="Mano de Obra OTE",
+        compute="_compute_breakdown_totals",
+        store=False,
+        currency_field="currency_id",
+        help="Total mano de obra OTE en la factura."
+        )
+    canon_total = fields.Monetary(
+        string="Canon",
+        compute="_compute_breakdown_totals",
+        store=False,
+        currency_field="currency_id",
+        help="Total canon normal en la factura (no OTE)."
+        )
+
+    @api.depends('invoice_line_ids.price_subtotal', 'invoice_line_ids.product_id', 'invoice_line_ids.canon_amount', 'invoice_line_ids.is_canon_line')
+    def _compute_breakdown_totals(self):
+        for move in self:
+            canon_ote = 0.0
+            labor_ote = 0.0
+            canon = 0.0
+            for line in move.invoice_line_ids:
+                # Canon OTE: línea canon de OTE (is_canon_line y canon_amount > 0)
+                if hasattr(line, 'is_canon_line') and line.is_canon_line:
+                    canon_ote += line.price_subtotal
+                # Mano de obra OTE: producto con 'mano de obra' en el nombre
+                elif line.product_id and 'mano de obra' in (line.product_id.display_name or '').lower():
+                    labor_ote += line.price_subtotal
+                # Canon normal: canon_amount > 0 pero no es línea canon OTE
+                elif hasattr(line, 'canon_amount') and line.canon_amount > 0:
+                    canon += line.price_subtotal
+            move.canon_total_ote = canon_ote
+            move.labor_total_ote = labor_ote
+            move.canon_total = canon
+    show_product_prices = fields.Boolean(
+        string="Mostrar precios de productos (OT)",
+        default=True,
+        help="Si está marcado, se mostrarán los precios de los productos en la factura generada desde una OTE."
+    )
     
     def _get_iva_productos(self):
         """
