@@ -14,12 +14,37 @@ from odoo.tools.sql import SQL
 
 
 class ProductProduct(models.Model):
+
     _name = "product.product"
     _description = "Product Variant"
     _inherits = {'product.template': 'product_tmpl_id'}
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'is_favorite desc, default_code, name, id'
     _check_company_domain = models.check_company_domain_parent_of
+    
+    def action_save_product_record(self):
+            """
+            Permite que el cliente web llame a esta acción sin error.
+            Si existe una implementación en el catálogo extendido, la usa.
+            """
+            # Buscar si hay un modelo extendido con este método
+            catalog_model = self.env['product.catalog'] if 'product.catalog' in self.env else None
+            if catalog_model and hasattr(catalog_model, 'action_save_product_record'):
+                # Buscar el registro correspondiente en el catálogo
+                catalog_rec = catalog_model.search([('product_variant_id', '=', self.id)], limit=1)
+                if catalog_rec:
+                    return catalog_rec.action_save_product_record()
+            # Si no, simplemente mostrar notificación genérica
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": "Producto guardado",
+                    "message": "Los cambios del producto se han guardado correctamente.",
+                    "type": "success",
+                    "sticky": False,
+                },
+            }
 
     # price_extra: catalog extra value only, sum of variant extra attributes
     price_extra = fields.Float(
