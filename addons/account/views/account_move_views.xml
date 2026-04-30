@@ -23,6 +23,14 @@
                             <field name="labor_total_ote" readonly="1" widget="monetary"/>
                         </div>
                     </div>
+                    <div class="o_row mt16" name="canon_footer">
+                        <div class="o_col">
+                            <div class="o_form_label">Canon Total</div>
+                        </div>
+                        <div class="o_col text-end">
+                            <field name="canon_total" readonly="1" widget="monetary"/>
+                        </div>
+                    </div>
                 </xpath>
             </field>
         </record>

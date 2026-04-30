@@ -246,15 +246,21 @@
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td><strong>Canon</strong></td>
+                                                <td><strong>Canon OTE</strong></td>
                                                 <td class="text-end">
                                                     <span t-field="o.canon_total_ote" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td><strong>Mano de Obra</strong></td>
+                                                <td><strong>Mano de Obra OTE</strong></td>
                                                 <td class="text-end">
                                                     <span t-field="o.labor_total_ote" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Canon Total</strong></td>
+                                                <td class="text-end">
+                                                    <span t-field="o.canon_total" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
                                                 </td>
                                             </tr>
                                             <tr>

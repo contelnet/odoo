@@ -17,7 +17,6 @@ from urllib.parse import urlencode
 
 from odoo import api, fields, models, _, Command, SUPERUSER_ID, modules, tools
 from odoo.tools.sql import column_exists, create_column
-from odoo.addons.account.tools import format_structured_reference_iso
 from odoo.exceptions import UserError, ValidationError, AccessError, RedirectWarning
 from odoo.osv import expression
 from odoo.tools.misc import clean_context
@@ -87,6 +86,7 @@ BYPASS_LOCK_CHECK = object()
 
 
 class AccountMove(models.Model):
+
     _name = "account.move"
     _inherit = ['portal.mixin', 'mail.thread.main.attachment', 'mail.activity.mixin', 'sequence.mixin', 'product.catalog.mixin']
     _description = "Journal Entry"
@@ -97,6 +97,35 @@ class AccountMove(models.Model):
     _rec_names_search = ['name', 'partner_id.name', 'ref']
     _systray_view = 'activity'
     _mailing_enabled = True
+    
+    def _get_iva_productos(self):
+        """
+        Devuelve el desglose de IVA para la factura, según la lógica:
+        - Base: suma de líneas de producto (sin canon)
+        - Canon: suma de líneas canon
+        - IVA: solo sobre la base (sin canon)
+        - Total: base + canon + IVA
+        """
+        self.ensure_one()
+        base = 0.0
+        canon = 0.0
+        iva = 0.0
+        iva_rate = 0.0
+        currency = self.currency_id
+        # Identificar líneas canon (usualmente marcadas con [CANON] en el nombre o campo is_canon_line)
+        for line in self.invoice_line_ids:
+            if hasattr(line, 'is_canon_line') and line.is_canon_line:
+                canon += line.price_subtotal
+            else:
+                base += line.price_subtotal
+                # Tomar el IVA de la primera línea no canon (asume todas tienen el mismo IVA)
+                if not iva_rate and line.tax_ids:
+                    iva_tax = line.tax_ids.filtered(lambda t: t.type_tax_use == 'sale' and t.amount > 0)
+                    if iva_tax:
+                        iva_rate = iva_tax[0].amount
+        iva = base * iva_rate / 100 if iva_rate else 0.0
+        # Formatear salida para el PDF (puedes ajustar el formato según el QWeb)
+        return f"Importe base: {currency.round(base + canon):.2f} €\nIVA {iva_rate:.0f}% en {currency.round(base):.2f} € = {currency.round(iva):.2f} €\nTotal: {currency.round(base + canon + iva):.2f} €"
 
     @property
     def _sequence_monthly_regex(self):
