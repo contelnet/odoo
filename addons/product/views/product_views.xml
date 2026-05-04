@@ -106,18 +106,6 @@
                                             class="oe_inline"
                                             widget="monetary"
                                             options="{'currency_field': 'currency_id', 'field_digits': True}"/>
-                                        <span
-                                            name="uom_span"
-                                            groups="uom.group_uom"
-                                            invisible="type == 'combo'"
-                                        >
-                                            per
-                                            <field
-                                                name="uom_id"
-                                                class="oe_inline" style="max-width:136px"
-                                                options="{'no_create': True}"
-                                            />
-                                        </span>
                                     </div>
 
                                     <!--
@@ -435,7 +423,7 @@
                     <field name="name" readonly="1"/>
                     <field name="product_template_variant_value_ids" widget="many2many_tags" groups="product.group_product_variant" readonly="1"/>
                     <field name="company_id" groups="base.group_multi_company" optional="hide" readonly="1"/>
-                    <field name="lst_price" optional="show" string="Sales Price"/>
+                    <field name="list_price" optional="show" string="Precio de venta"/>
                     <field name="standard_price" optional="show"/>
                     <field name="categ_id" optional="hide"/>
                     <field name="product_tag_ids" widget="many2many_tags" readonly="1" optional="hide"/>

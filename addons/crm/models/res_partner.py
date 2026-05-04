@@ -11,6 +11,30 @@ _logger = logging.getLogger(__name__)
 
 
 class Partner(models.Model):
+            @api.onchange('billing_payment_method_id')
+            def _onchange_billing_payment_method_id(self):
+                """Si el usuario introduce una forma de pago nueva desde el widget, créala automáticamente."""
+                if self.billing_payment_method_id and not self.billing_payment_method_id.id:
+                    name = self.billing_payment_method_id.name
+                    if name:
+                        pm = self.env['crm.payment.method'].search([('name', '=', name)], limit=1)
+                        if not pm:
+                            pm = self.env['crm.payment.method'].create({'name': name})
+                        self.billing_payment_method_id = pm
+        @api.model
+        def migrate_billing_payment_methods(self):
+            """Migra valores antiguos de billing_payment_method a billing_payment_method_id, creando métodos si es necesario."""
+            partners = self.search([])
+            PaymentMethod = self.env['crm.payment.method']
+            for partner in partners:
+                code = partner.billing_payment_method
+                if code and code not in ['contado', 'transferencia', 'sepa']:
+                    # Si el método no existe, créalo
+                    pm = PaymentMethod.search([('code', '=', code)], limit=1)
+                    if not pm:
+                        pm = PaymentMethod.create({'name': code.replace('_', ' ').title(), 'code': code})
+                    partner.billing_payment_method_id = pm.id
+            return True
     _name = 'res.partner'
     _inherit = 'res.partner'
 
@@ -134,15 +158,7 @@ class Partner(models.Model):
         help="Archivo PDF o documento de la LOPD firmada",
     )
     billing_prepago = fields.Boolean(string="Cliente prepago", default=False)
-    billing_payment_method = fields.Selection(
-        selection=[
-            ('contado', 'Contado'),
-            ('transferencia', 'Transferencia'),
-            ('sepa', 'SEPA'),
-        ],
-        string="Forma de pago (legacy)",
-        default='contado',
-    )
+    billing_payment_method = fields.Char(string="Forma de pago (legacy, migrado)")
     billing_payment_method_id = fields.Many2one(
         'crm.payment.method',
         string="Forma de pago",

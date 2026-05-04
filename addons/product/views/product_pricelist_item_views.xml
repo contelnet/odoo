@@ -38,7 +38,7 @@
         <list string="Price Rules">
           <field name="pricelist_id"/>
           <field name="name" string="Applied On"/>
-          <field name="price"/>
+          <field name="price" string="Precio de venta"/>
           <field name="min_quantity" colspan="4"/>
           <field name="date_start" optional="hide"/>
           <field name="date_end" optional="hide"/>
@@ -77,7 +77,7 @@
                   options="{'no_create_edit':1, 'no_open': 1}"/>
                 <field name="fixed_price"
                         widget="monetary"
-                        string="Price"
+                        string="Precio de venta"
                         options="{'currency_field': 'currency_id', 'field_digits': True}"
                         required='1'/>
                 <field name="min_quantity" colspan="4"/>
