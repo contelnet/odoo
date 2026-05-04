@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates>
+    <t t-inherit="odoo_outlook.OutlookPanel" t-inherit-mode="extension">
+        <xpath expr="//div[contains(@class, 'o_outlook_actions')]" position="inside">
+            <button t-on-click="createHelpdeskTicket" class="btn btn-primary">
+                Crear ticket
+            </button>
+        </xpath>
+    </t>
+</templates>
