@@ -143,24 +143,25 @@
                                     <tr t-att-class="'fw-bold o_line_section' if line.display_type == 'line_section' else 'fst-italic o_line_note' if line.display_type == 'line_note' else ''">
                                         <t t-if="line.display_type == 'product'" name="account_invoice_line_accountable">
                                             <td name="account_invoice_line_name">
-                                                <span t-if="line.name" t-field="line.name" t-options="{'widget': 'text'}">Bacon Burger</span>
+                                                <span t-if="line.is_canon_line" style="color:#007bff;font-weight:bold;">[CANON] </span>
+                                                <span t-if="line.name" t-field="line.name" t-options="{'widget': 'text'}"/>
                                             </td>
                                             <td name="td_quantity" class="o_td_quantity text-end">
-                                                <span t-field="line.quantity" class="text-nowrap">3.00</span>
-                                                <span t-field="line.product_uom_id"  groups="uom.group_uom">units</span>
+                                                <span t-field="line.quantity" class="text-nowrap"/>
+                                                <span t-field="line.product_uom_id"  groups="uom.group_uom"/>
                                             </td>
                                             <td name="td_price_unit" t-if="o.show_product_prices" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
-                                                <span class="text-nowrap" t-field="line.price_unit">9.00</span>
+                                                <span class="text-nowrap" t-field="line.price_unit"/>
                                             </td>
                                             <td name="td_discount" t-if="display_discount and o.show_product_prices" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
-                                                <span class="text-nowrap" t-field="line.discount">0</span>
+                                                <span class="text-nowrap" t-field="line.discount"/>
                                             </td>
-                                            <t t-set="taxes" t-value="', '.join([(tax.invoice_label or tax.name) for tax in line.tax_ids])"/>
+                                            <t t-set="taxes" t-value=", ".join([(tax.invoice_label or tax.name) for tax in line.tax_ids])"/>
                                             <td name="td_taxes" t-if="o.show_product_prices" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }} {{ 'text-nowrap' if len(taxes) &lt; 10 else '' }}">
-                                                <span t-out="taxes" id="line_tax_ids">Tax 15%</span>
+                                                <span t-out="taxes" id="line_tax_ids"/>
                                             </td>
                                             <td name="td_subtotal" t-if="o.show_product_prices" class="text-end o_price_total">
-                                                <span class="text-nowrap" t-field="line.price_subtotal">27.00</span>
+                                                <span class="text-nowrap" t-field="line.price_subtotal"/>
                                             </td>
                                         </t>
                                         <t t-elif="line.display_type == 'line_section'">
