@@ -157,7 +157,7 @@
                                                 <span class="text-nowrap" t-field="line.discount"/>
                                             </td>
                                             <t t-set="taxes" t-value=", ".join([(tax.invoice_label or tax.name) for tax in line.tax_ids])"/>
-                                            <td name="td_taxes" t-if="o.show_product_prices" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }} {{ 'text-nowrap' if len(taxes) &lt; 10 else '' }}">
+                                            <td name="td_taxes" t-if="o.show_product_prices" t-att-class="'text-end ' + ('d-none d-md-table-cell ' if report_type == 'html' else '') + ('text-nowrap' if taxes and len(taxes) < 10 else '')">
                                                 <span t-out="taxes" id="line_tax_ids"/>
                                             </td>
                                             <td name="td_subtotal" t-if="o.show_product_prices" class="text-end o_price_total">
