@@ -12,13 +12,13 @@
                             <div class="o_form_label">Desglose Canon y Mano de Obra</div>
                         </div>
                         <div class="o_col text-end">
-                            <div t-attf-class="o_field_value #{'text-muted' if canon_total_ote == 0.0 else ''}">
+                            <div t-attf-class="o_field_value {{ canon_total_ote == 0.0 ? 'text-muted' : '' }}">
                                 <field name="canon_total_ote" readonly="1" widget="monetary"/>
                             </div>
-                            <div t-attf-class="o_field_value #{'text-muted' if labor_total_ote == 0.0 else ''}">
+                            <div t-attf-class="o_field_value {{ labor_total_ote == 0.0 ? 'text-muted' : '' }}">
                                 <field name="labor_total_ote" readonly="1" widget="monetary"/>
                             </div>
-                            <div t-attf-class="o_field_value #{'text-muted' if canon_total == 0.0 else ''}">
+                            <div t-attf-class="o_field_value {{ canon_total == 0.0 ? 'text-muted' : '' }}">
                                 <field name="canon_total" readonly="1" widget="monetary"/>
                             </div>
                         </div>
