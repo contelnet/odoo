@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Secuencia personalizada para Albarán (entrega/salida) -->
+    <record id="seq_stock_picking_albaran" model="ir.sequence">
+        <field name="name">Albarán de salida personalizado</field>
+        <field name="code">stock.picking.albaran</field>
+        <field name="prefix">ALB%(y)s</field>
+        <field name="padding">5</field>
+        <field name="company_id" eval="False"/>
+        <field name="implementation">standard</field>
+        <field name="use_date_range">True</field>
+    </record>
+
+    <!-- Secuencia personalizada para Presupuesto (pedido de venta) -->
+    <record id="seq_sale_order_presupuesto" model="ir.sequence">
+        <field name="name">Presupuesto personalizado</field>
+        <field name="code">sale.order.presupuesto</field>
+        <field name="prefix">PPT%(y)s</field>
+        <field name="padding">5</field>
+        <field name="company_id" eval="False"/>
+        <field name="implementation">standard</field>
+        <field name="use_date_range">True</field>
+    </record>
+
+    <!-- Asignar la secuencia de albarán al tipo de operación de salida -->
+    <record id="stock_picking_type_out" model="stock.picking.type">
+        <field name="sequence_id" ref="custom_document_sequences.seq_stock_picking_albaran"/>
+    </record>
+
+    <!-- Asignar la secuencia de presupuesto al pedido de venta (cotización) -->
+    <record id="sale_order_sequence" model="ir.model.data">
+        <field name="model">ir.sequence</field>
+        <field name="module">custom_document_sequences</field>
+        <field name="name">seq_sale_order_presupuesto</field>
+        <field name="noupdate" eval="1"/>
+    </record>
+    <record id="sale_sequence_form" model="ir.sequence">
+        <field name="code">sale.order</field>
+        <field name="prefix">PPT%(y)s</field>
+        <field name="padding">5</field>
+        <field name="company_id" eval="False"/>
+        <field name="implementation">standard</field>
+        <field name="use_date_range">True</field>
+    </record>
+</odoo>
