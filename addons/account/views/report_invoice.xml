@@ -145,8 +145,8 @@
                                             <td name="account_invoice_line_name">
                                                 <!-- Estilo especial para línea CANON -->
                                                 <span t-if="line.is_canon_line" style="color:#007bff;font-weight:bold;">[CANON] </span>
-                                                <!-- Estilo especial para línea MANO DE OBRA real -->
-                                                <span t-if="line.is_labor_line" style="color:#28a745;font-weight:bold;">[MANO DE OBRA] </span>
+                                                <!-- Estilo especial para línea MANO DE OBRA (por nombre de producto) -->
+                                                <span t-if="line.product_id and 'mano de obra' in (line.product_id.display_name or '').lower()" style="color:#28a745;font-weight:bold;">[MANO DE OBRA] </span>
                                                 <span t-if="line.name" t-field="line.name" t-options="{'widget': 'text'}"/>
                                             </td>
                                             <td name="td_quantity" class="o_td_quantity text-end">
