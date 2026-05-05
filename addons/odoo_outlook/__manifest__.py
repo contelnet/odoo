@@ -7,7 +7,7 @@
     "category": "Productivity",
     "version": "18.0.1.0.0",
     "license": "GPL-3",
-    "depends": ["base", "crm", "project", "mail"],
+    "depends": ["base", "crm", "project", "mail", "web"],
     "data": [
         "views/outlook.xml",
         "records/ir.model.access.csv"

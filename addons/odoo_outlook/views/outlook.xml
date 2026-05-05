@@ -40,6 +40,5 @@
         </template>
 
         <menuitem id="sync_top_menu" name="Synchronize" sequence="1000" action="outlook_sync_action"/>
-        <!-- menú lateral eliminado por limpieza -->
     </data>
 </odoo>
