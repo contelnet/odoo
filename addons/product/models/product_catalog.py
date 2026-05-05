@@ -796,17 +796,6 @@ class Product(models.Model):
             product.stock_last_synced_at = fields.Datetime.now()
 
     def _validate_target_stock_quantity(self, target_qty, precision_rounding):
-        self.ensure_one()
-        if self.product_mode == "single" and float_compare(
-            target_qty,
-            1.0,
-            precision_rounding=precision_rounding,
-        ) > 0:
-            raise ValidationError(
-                _(
-                    "Los productos unicos solo admiten una unidad en stock."
-                )
-            )
         tracking_value = self.tracking if "tracking" in self._fields else "none"
         if tracking_value == "serial" and float_compare(
             target_qty,
@@ -814,9 +803,7 @@ class Product(models.Model):
             precision_rounding=precision_rounding,
         ):
             raise ValidationError(
-                _(
-                    "Los productos con numero de serie solo admiten cantidades enteras."
-                )
+                _("Los productos con numero de serie solo admiten cantidades enteras.")
             )
 
     def _inverse_stock_initial_qty(self):
@@ -1297,13 +1284,13 @@ class Product(models.Model):
 
         if "has_imei" in vals and not vals.get("has_imei"):
             vals["imei_number"] = False
-        if (
-            vals.get("stock_location_id")
-            and not vals.get("company_id")
-            and self._is_model_available("stock.location")
-        ):
+        if vals.get("stock_location_id") and self._is_model_available("stock.location"):
             location = self.env["stock.location"].browse(vals["stock_location_id"])
-            vals["company_id"] = location.company_id.id or self.env.company.id
+            location_company_id = location.company_id.id if location else False
+            if not vals.get("company_id"):
+                vals["company_id"] = location_company_id or self.env.company.id
+            elif vals.get("company_id") != location_company_id:
+                raise ValidationError("La compañía del producto y la de la ubicación deben coincidir.")
         result = super().write(vals)
         self._apply_stock_sync_from_values(vals)
         if "piece_input" in vals or "piece_product_id" in vals or "product_mode" in vals:
