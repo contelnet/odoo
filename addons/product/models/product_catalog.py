@@ -1256,47 +1256,37 @@ class Product(models.Model):
         return products
 
     def write(self, vals):
+        # Solo tocar impuestos si el usuario los envía explícitamente
         if vals and self._is_model_available("account.tax"):
             for many2many_field in ("supplier_taxes_id", "taxes_id"):
-                if many2many_field not in vals:
-                    continue
-                raw_value = vals[many2many_field]
-                
-                # Si es explícitamente False/None, permitir limpieza
-                if raw_value is False or raw_value is None:
-                    vals[many2many_field] = False
-                    continue
-                
-                # Si es lista/tuple vacía, es limpieza explícita
-                if isinstance(raw_value, (list, tuple)) and not raw_value:
-                    vals[many2many_field] = False
-                    continue
-                
-                try:
-                    clean_ids, explicit_clear = self._extract_tax_ids_from_m2m_value(raw_value)
-                except Exception:
-                    clean_ids, explicit_clear = [], False
-
-                if clean_ids:
-                    vals[many2many_field] = [(6, 0, clean_ids)]
-                elif explicit_clear:
-                    # Limpieza explícita detectada (comando 5 o comando 6 con lista vacía)
-                    vals[many2many_field] = False
-                else:
-                    # Si no hay IDs válidos ni vaciado explícito, no tocar impuestos existentes.
-                    vals.pop(many2many_field, None)
-        
-        # Proteger supplier_partner_id: si no se envía explícitamente, no limpiarlo
+                if many2many_field in vals:
+                    raw_value = vals[many2many_field]
+                    # Si es explícitamente False/None, permitir limpieza
+                    if raw_value is False or raw_value is None:
+                        vals[many2many_field] = False
+                        continue
+                    # Si es lista/tuple vacía, es limpieza explícita
+                    if isinstance(raw_value, (list, tuple)) and not raw_value:
+                        vals[many2many_field] = False
+                        continue
+                    try:
+                        clean_ids, explicit_clear = self._extract_tax_ids_from_m2m_value(raw_value)
+                    except Exception:
+                        clean_ids, explicit_clear = [], False
+                    if clean_ids:
+                        vals[many2many_field] = [(6, 0, clean_ids)]
+                    elif explicit_clear:
+                        vals[many2many_field] = False
+                    else:
+                        # Si no hay IDs válidos ni vaciado explícito, no tocar impuestos existentes.
+                        vals.pop(many2many_field, None)
+        # Solo tocar proveedor si el usuario lo envía explícitamente
         if "supplier_partner_id" in vals:
             raw_value = vals["supplier_partner_id"]
-            # Si es False, None, o 0, es limpieza explícita (está bien)
-            # Si es un ID válido > 0, mantenerlo
-            # Si es algo raro, intentar extraer el ID
             if raw_value and not isinstance(raw_value, (int, list, tuple)):
                 if hasattr(raw_value, "id"):
                     vals["supplier_partner_id"] = raw_value.id
                 elif isinstance(raw_value, (list, tuple)) and raw_value:
-                    # Comando many2one (4, partner_id) o similar
                     if isinstance(raw_value[0], int) and raw_value[0] in (4, 1, 2, 3):
                         if len(raw_value) > 1:
                             vals["supplier_partner_id"] = raw_value[1]

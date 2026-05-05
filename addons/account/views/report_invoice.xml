@@ -143,7 +143,10 @@
                                     <tr t-att-class="'fw-bold o_line_section' if line.display_type == 'line_section' else 'fst-italic o_line_note' if line.display_type == 'line_note' else ''">
                                         <t t-if="line.display_type == 'product'" name="account_invoice_line_accountable">
                                             <td name="account_invoice_line_name">
+                                                <!-- Estilo especial para línea CANON -->
                                                 <span t-if="line.is_canon_line" style="color:#007bff;font-weight:bold;">[CANON] </span>
+                                                <!-- Estilo especial para línea MANO DE OBRA (nombre contiene 'mano de obra') -->
+                                                <span t-if="line.product_id and 'mano de obra' in (line.product_id.display_name or '').lower()" style="color:#28a745;font-weight:bold;">[MANO DE OBRA] </span>
                                                 <span t-if="line.name" t-field="line.name" t-options="{'widget': 'text'}"/>
                                             </td>
                                             <td name="td_quantity" class="o_td_quantity text-end">
@@ -233,6 +236,7 @@
                                                 </t>
                                             </t>
                                         </table>
+                                        <!-- DESGLOSE DE TOTALES: Base, IVA, Canon, Mano de Obra, Total -->
                                         <table class="o_total_table table table-borderless avoid-page-break-inside">
                                             <tr>
                                                 <td><strong>Base Imponible</strong></td>
@@ -246,6 +250,7 @@
                                                     <span t-esc="o._get_iva_productos()"/>
                                                 </td>
                                             </tr>
+                                            <!-- Canon OTE -->
                                             <t t-if="o.canon_total_ote">
                                                 <tr>
                                                     <td><strong>Canon OTE</strong></td>
@@ -254,6 +259,7 @@
                                                     </td>
                                                 </tr>
                                             </t>
+                                            <!-- Mano de Obra OTE -->
                                             <t t-if="o.labor_total_ote">
                                                 <tr>
                                                     <td><strong>Mano de Obra OTE</strong></td>
@@ -262,6 +268,7 @@
                                                     </td>
                                                 </tr>
                                             </t>
+                                            <!-- Canon general -->
                                             <t t-if="o.canon_total">
                                                 <tr>
                                                     <td><strong>Canon</strong></td>
