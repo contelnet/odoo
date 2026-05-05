@@ -145,8 +145,8 @@
                                             <td name="account_invoice_line_name">
                                                 <!-- Estilo especial para línea CANON -->
                                                 <span t-if="line.is_canon_line" style="color:#007bff;font-weight:bold;">[CANON] </span>
-                                                <!-- Estilo especial para línea MANO DE OBRA (nombre contiene 'mano de obra') -->
-                                                <span t-if="line.product_id and 'mano de obra' in (line.product_id.display_name or '').lower()" style="color:#28a745;font-weight:bold;">[MANO DE OBRA] </span>
+                                                <!-- Estilo especial para línea MANO DE OBRA real -->
+                                                <span t-if="line.is_labor_line" style="color:#28a745;font-weight:bold;">[MANO DE OBRA] </span>
                                                 <span t-if="line.name" t-field="line.name" t-options="{'widget': 'text'}"/>
                                             </td>
                                             <td name="td_quantity" class="o_td_quantity text-end">
@@ -240,9 +240,9 @@
                                         <!-- DESGLOSE DE TOTALES: Base, IVA, Canon, Mano de Obra, Total -->
                                         <table class="o_total_table table table-borderless avoid-page-break-inside">
                                             <tr>
-                                                <td><strong>Base Imponible</strong></td>
+                                                <td><strong>Base Imponible (sin canon)</strong></td>
                                                 <td class="text-end">
-                                                    <span t-esc="o.amount_untaxed"/>
+                                                    <span t-esc="o.amount_untaxed - (o.canon_total_ote or 0.0)"/>
                                                 </td>
                                             </tr>
                                             <tr>
@@ -251,16 +251,14 @@
                                                     <span t-esc="o._get_iva_productos()"/>
                                                 </td>
                                             </tr>
-                                            <!-- Canon OTE -->
                                             <t t-if="o.canon_total_ote">
                                                 <tr>
-                                                    <td><strong>Canon OTE</strong></td>
+                                                    <td><strong>Canon OTE <span style='font-size:10px;'>(exento de IVA)</span></strong></td>
                                                     <td class="text-end">
                                                         <span t-field="o.canon_total_ote" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
                                                     </td>
                                                 </tr>
                                             </t>
-                                            <!-- Mano de Obra OTE -->
                                             <t t-if="o.labor_total_ote">
                                                 <tr>
                                                     <td><strong>Mano de Obra OTE</strong></td>
@@ -269,10 +267,9 @@
                                                     </td>
                                                 </tr>
                                             </t>
-                                            <!-- Canon general -->
                                             <t t-if="o.canon_total">
                                                 <tr>
-                                                    <td><strong>Canon</strong></td>
+                                                    <td><strong>Canon</strong> <span style='font-size:10px;'>(exento de IVA)</span></td>
                                                     <td class="text-end">
                                                         <span t-field="o.canon_total" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
                                                     </td>
