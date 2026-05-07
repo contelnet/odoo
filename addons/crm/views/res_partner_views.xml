@@ -55,101 +55,99 @@
         <field name="name">res.partner.form.crm.company</field>
         <field name="model">res.partner</field>
         <field name="arch" type="xml">
-            <form string="Cuenta" class="o_crm_partner_form o_crm_partner_company_form">
+            <form string="Cuenta" class="o_crm_partner_form o_crm_partner_company_form o_professional_clean">
                 <sheet>
                     <field name="is_company" invisible="1"/>
                     <field name="type" invisible="1"/>
 
                     <notebook>
                         <page string="Resumen">
-                            <!-- Imagen y nombre completo mejorados para nombres largos -->
-                            <div class="d-flex align-items-center mb-3" style="flex-wrap: wrap;">
-                                <field name="image_1920" widget="image" class="me-3 rounded" options="{'preview_image': 'avatar_128'}" style="width: 96px; height: 96px; object-fit: cover;"/>
-                                <div style="min-width: 0; max-width: 100%; flex: 1 1 0;">
-                                    <span style="font-size: 2rem; font-weight: bold; word-break: break-word; white-space: normal; display: block; max-width: 100%; overflow-wrap: anywhere;">
+                            <!-- Cabecera profesional con KPIs -->
+                            <div class="o_partner_header_panel" style="display: flex; align-items: flex-start; gap: 2rem; margin-bottom: 2rem; border-bottom: 1px solid #e0e0e0; padding-bottom: 1.5rem;">
+                                <field name="image_1920" widget="image" class="o_partner_avatar" options="{'preview_image': 'avatar_128'}" style="width: 110px; height: 110px; border-radius: 12px; object-fit: cover; box-shadow: 0 2px 8px #0001;"/>
+                                <div style="flex: 1 1 0; min-width: 0;">
+                                    <div style="font-size: 2.2rem; font-weight: 700; color: #222; word-break: break-word; white-space: normal; max-width: 100%; overflow-wrap: anywhere;">
                                         <field name="name" string="Nombre de cuenta" required="1" placeholder="Ej: DSI Soluciones Industriales" nolabel="1"/>
-                                    </span>
-                                    <div style="font-size: 1rem; color: #888; word-break: break-all;">
+                                    </div>
+                                    <div style="font-size: 1.1rem; color: #666; margin-top: 0.2rem;">
                                         <field name="email" string="Correo electrónico" placeholder="nombre@empresa.com" nolabel="1"/>
+                                    </div>
+                                    <div style="font-size: 1rem; color: #888; margin-top: 0.2rem;">
+                                        <field name="phone" string="Teléfono" placeholder="Ej: 628787560" nolabel="1"/>
+                                    </div>
+                                </div>
+                                <div style="margin-left: auto; display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-end;">
+                                    <button name="action_open_website" type="object" icon="fa-globe" string="Web" class="btn btn-outline-primary" title="Ir al sitio web" invisible="not website" style="margin-left: 0.5rem; margin-bottom: 0.5rem;"/>
+                                    <!-- KPIs visuales -->
+                                    <div class="o_partner_kpis" style="display: flex; gap: 1.2rem;">
+                                        <div style="background: #f8f9fa; border-radius: 8px; padding: 0.7rem 1.2rem; min-width: 110px; text-align: center; box-shadow: 0 1px 4px #0001;">
+                                            <div style="font-size: 1.1rem; color: #2a2a2a; font-weight: 600;">Casos activos</div>
+                                            <t t-esc="len([t for t in record.ticket_ids if t.state == 'active'])"/>
+                                        </div>
+                                        <div style="background: #f8f9fa; border-radius: 8px; padding: 0.7rem 1.2rem; min-width: 110px; text-align: center; box-shadow: 0 1px 4px #0001;">
+                                            <div style="font-size: 1.1rem; color: #2a2a2a; font-weight: 600;">Casos resueltos</div>
+                                            <t t-esc="len([t for t in record.ticket_ids if t.state == 'done'])"/>
+                                        </div>
+                                        <div style="background: #f8f9fa; border-radius: 8px; padding: 0.7rem 1.2rem; min-width: 110px; text-align: center; box-shadow: 0 1px 4px #0001;">
+                                            <div style="font-size: 1.1rem; color: #2a2a2a; font-weight: 600;">Horas invertidas</div>
+                                            <t t-esc="sum([t.logged_hours_total for t in record.ticket_ids if t.state == 'done']) | round(2)"/>
+                                        </div>
+                                        <div style="background: #f8f9fa; border-radius: 8px; padding: 0.7rem 1.2rem; min-width: 110px; text-align: center; box-shadow: 0 1px 4px #0001;">
+                                            <div style="font-size: 1.1rem; color: #2a2a2a; font-weight: 600;">Dispositivos</div>
+                                            <t t-esc="record.contract_it_devices_laptops or 0"/>L / <t t-esc="record.contract_it_devices_desktops or 0"/>S / <t t-esc="record.contract_it_devices_software or 0"/>SV
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            <group string="INFORMACIÓN DE LA CUENTA" col="2">
-                                <group>
+
+                            <!-- Paneles de información -->
+                            <div class="o_partner_panels" style="display: flex; flex-wrap: wrap; gap: 2rem; margin-bottom: 2rem;">
+                                <div style="flex: 1 1 320px; min-width: 320px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
+                                    <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Datos fiscales y generales</h3>
                                     <field name="vat" string="CIF" placeholder="Ej: B12345678"/>
                                     <field name="trade_name" string="Marca Comercial" placeholder="Ej: DSI"/>
-                                    <field name="phone" string="Teléfono" placeholder="Ej: 628787560"/>
-                                    <label for="website" string="Sitio web"/>
-                                    <div class="o_row">
-                                        <field name="website" nolabel="1"/>
-                                        <xpath expr="//button[@name='action_open_website']" position="replace">
-                                            <button name="action_open_website"
-                                                    type="object"
-                                                    icon="fa-globe"
-                                                    string=""
-                                                    class="btn btn-link"
-                                                    title="Ir al sitio web"
-                                                    invisible="not website"/>
-                                        </xpath>
-                                    </div>
-                                </group>
-                                <group>
-                                    <group col="2">
-                                        <label for="parent_id" string="Cuenta primaria"/>
-                                        <field name="parent_id" nolabel="1" domain="[('is_company', '=', True), ('id', '!=', id)]" placeholder="Cuenta primaria" context="{'form_view_ref': 'crm.view_partner_form_crm_company'}"/>
+                                    <field name="website" string="Sitio web" placeholder="www.ejemplo.com"/>
+                                </div>
+                                <div style="flex: 1 1 320px; min-width: 320px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
+                                    <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Relación y contacto principal</h3>
+                                    <field name="parent_id" string="Cuenta primaria" domain="[("is_company", '=', True), ("id", '!=', id)]" placeholder="Cuenta primaria" context="{'form_view_ref': 'crm.view_partner_form_crm_company'}"/>
+                                    <field name="relationship_type_id" string="Tipo de relación"/>
+                                    <field name="main_contact_id" string="Contacto principal" domain="[("parent_id", '=', id), ("type", '=', 'contact')]" placeholder="Contacto principal"/>
+                                </div>
+                                <div style="flex: 1 1 320px; min-width: 320px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
+                                    <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Privacidad y LOPD</h3>
+                                    <field name="lopd_signed" string="LOPD firmada"/>
+                                    <field name="lopd_document_id" string="Archivo LOPD" options="{'no_create': True, 'no_create_edit': True}" placeholder="Seleccionar archivo LOPD"/>
+                                    <button name="action_import_lopd_document" type="object" string="Adjuntar archivo LOPD" class="btn btn-outline-secondary" style="margin-top: 0.5rem;"/>
+                                </div>
+                            </div>
 
-                                        <label for="relationship_type_id" string="Tipo de relación"/>
-                                        <field name="relationship_type_id" nolabel="1"/>
-
-                                        <label for="main_contact_id" string="Contacto principal"/>
-                                        <field name="main_contact_id" nolabel="1" domain="[('parent_id', '=', id), ('type', '=', 'contact')]" placeholder="Contacto principal"/>
-
-                                        <label for="lopd_signed" string="LOPD firmada"/>
-                                        <field name="lopd_signed" nolabel="1"/>
-                                    </group>
-
-                                    <group invisible="not lopd_signed" col="2">
-                                        <label for="lopd_document_id" string="Archivo LOPD"/>
-                                        <field name="lopd_document_id"
-                                            nolabel="1"
-                                            required="lopd_signed"
-                                            options="{'no_create': True, 'no_create_edit': True}"
-                                            placeholder="Seleccionar archivo LOPD"/>
-                                        <span class="o_form_label">&#160;</span>
-                                        <button name="action_import_lopd_document"
-                                                type="object"
-                                                string="Adjuntar archivo LOPD"
-                                                class="btn-primary"/>
-                                    </group>
-                                </group>
-                            </group>
-
-                            <group string="DIRECCIÓN" col="2">
-                                <group>
+                            <!-- Dirección y mapa -->
+                            <div class="o_partner_address_panel" style="display: flex; flex-wrap: wrap; gap: 2rem; margin-bottom: 2rem;">
+                                <div style="flex: 2 1 400px; min-width: 320px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
+                                    <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Dirección principal</h3>
                                     <field name="available_location_ids" invisible="1"/>
-                                    <field name="location_id" string="Ubicación" domain="[('id', 'in', available_location_ids)]" options="{'no_create': True}" placeholder="Selecciona una ubicación"/>
-                                    <field name="street"
-                                        string="Calle"
-                                        placeholder="Ej: C/ Asturias"/>
+                                    <field name="location_id" string="Ubicación" domain="[("id", 'in', available_location_ids)]" options="{'no_create': True}" placeholder="Selecciona una ubicación"/>
+                                    <field name="street" string="Calle" placeholder="Ej: C/ Asturias"/>
                                     <field name="street_number" string="Número" placeholder="Ej: 21"/>
                                     <field name="street2" string="Portal / Piso / Oficina" placeholder="Ej: Entresuelo B"/>
                                     <field name="city" string="Ciudad" placeholder="Ej: Oviedo"/>
                                     <field name="zip" string="Código postal" placeholder="Ej: 33001"/>
                                     <field name="state_id" string="Estado o provincia" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="country_id" string="País o región" options="{'no_open': True, 'no_create': True}"/>
-
                                     <field name="latitude" invisible="1"/>
                                     <field name="longitude" invisible="1"/>
-                                    <button name="action_geocode_address" type="object" string="Actualizar" class="btn-secondary"/>
-                                </group>
-
-                                <group string="MAPA">
+                                    <button name="action_geocode_address" type="object" string="Actualizar" class="btn btn-outline-secondary" style="margin-top: 0.5rem;"/>
+                                </div>
+                                <div style="flex: 1 1 320px; min-width: 320px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001; display: flex; align-items: center; justify-content: center;">
                                     <field name="map_html" widget="html" nolabel="1"/>
-                                </group>
-                            </group>
+                                </div>
+                            </div>
 
-                            <group string="CONTACTOS">
-                                <field name="child_ids" mode="list,form" domain="[('is_company', '=', False), ('type', '=', 'contact')]" context="{'default_parent_id': id, 'default_type': 'contact', 'default_is_company': False, 'form_view_ref': 'crm.view_partner_form_crm_person'}">
+                            <!-- Contactos -->
+                            <div class="o_partner_contacts_panel" style="background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001; margin-bottom: 2rem;">
+                                <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Contactos</h3>
+                                <field name="child_ids" mode="list,form" editable="bottom" domain="[("is_company", '=', False), ("type", '=', 'contact')]" context="{'default_parent_id': id, 'default_type': 'contact', 'default_is_company': False, 'form_view_ref': 'crm.view_partner_form_crm_person'}">
                                     <list>
                                         <field name="name" string="Nombre completo"/>
                                         <field name="email" string="Correo electrónico"/>
@@ -157,7 +155,7 @@
                                         <field name="mobile" string="Teléfono móvil"/>
                                     </list>
                                 </field>
-                            </group>
+                            </div>
                         </page>
 
                         <page string="Facturación">
@@ -243,7 +241,7 @@
                                         <field name="contract_it_devices_laptops" nolabel="1"/>
                                         <label for="contract_it_devices_desktops" string="Nº sobremesa"/>
                                         <field name="contract_it_devices_desktops" nolabel="1"/>
-                                        <label for="contract_it_devices_software" string="Nº software"/>
+                                        <label for="contract_it_devices_software" string="Nº SERVER"/>
                                         <field name="contract_it_devices_software" nolabel="1"/>
                                     </group>
                                 </group>
@@ -304,6 +302,38 @@
                             </group>
                         </page>
                         <page string="Servicio"/>
+                                                <page string="Servicio">
+                                                    <div class="o_partner_service_panel" style="display: flex; flex-wrap: wrap; gap: 2rem;">
+                                                        <div style="flex: 1 1 400px; min-width: 350px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
+                                                            <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Casos activos</h3>
+                                                            <field name="ticket_ids" domain="[('customer_id', '=', id), ('state', '=', 'active')]" context="{'default_customer_id': id}" mode="tree" nolabel="1">
+                                                                <tree string="Casos activos" create="false" delete="false">
+                                                                    <field name="number" string="Nº"/>
+                                                                    <field name="name" string="Título"/>
+                                                                    <field name="user_id" string="Responsable"/>
+                                                                    <field name="priority" widget="priority"/>
+                                                                    <field name="stage_id" string="Etapa"/>
+                                                                    <field name="state" string="Estado" widget="badge"/>
+                                                                    <field name="create_date" string="Creado"/>
+                                                                </tree>
+                                                            </field>
+                                                        </div>
+                                                        <div style="flex: 1 1 400px; min-width: 350px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
+                                                            <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Casos resueltos</h3>
+                                                            <field name="ticket_ids" domain="[('customer_id', '=', id), ('state', '=', 'done')]" context="{'default_customer_id': id}" mode="tree" nolabel="1">
+                                                                <tree string="Casos resueltos" create="false" delete="false">
+                                                                    <field name="number" string="Nº"/>
+                                                                    <field name="name" string="Título"/>
+                                                                    <field name="user_id" string="Responsable"/>
+                                                                    <field name="priority" widget="priority"/>
+                                                                    <field name="stage_id" string="Etapa"/>
+                                                                    <field name="state" string="Estado" widget="badge"/>
+                                                                    <field name="closed_date" string="Cerrado"/>
+                                                                </tree>
+                                                            </field>
+                                                        </div>
+                                                    </div>
+                                                </page>
                         <page string="Archivo"/>
                     </notebook>
                 </sheet>

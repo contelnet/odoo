@@ -221,7 +221,7 @@ class Partner(models.Model):
         default=0,
     )
     contract_it_devices_software = fields.Integer(
-        string="Nº software",
+        string="Nº SERVER",
         default=0,
     )
     contract_physical_centralita = fields.Boolean(
@@ -411,12 +411,9 @@ class Partner(models.Model):
         'parent_id.location_ids',
     )
     def _compute_available_location_ids(self):
+        # Ahora cada cuenta (principal o secundaria) solo ve sus propias ubicaciones
         for partner in self:
-            main_company = partner._get_main_company_for_locations()
-            if main_company:
-                partner.available_location_ids = main_company.location_ids
-            else:
-                partner.available_location_ids = partner.location_ids
+            partner.available_location_ids = partner.location_ids
 
     def _get_main_company_for_locations(self):
         self.ensure_one()
