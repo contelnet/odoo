@@ -224,6 +224,11 @@ class Partner(models.Model):
         string="Nº SERVER",
         default=0,
     )
+    contract_devices_summary = fields.Char(
+        string="Resumen dispositivos",
+        compute="_compute_contract_devices_summary",
+        store=False,
+    )
     contract_physical_centralita = fields.Boolean(
         string="Mantenimiento centralita física",
         default=False,
@@ -261,6 +266,14 @@ class Partner(models.Model):
     def _inverse_contract_it_devices_laptop(self):
         for partner in self:
             partner.contract_it_devices_laptops = partner.contract_it_devices_laptop or 0
+
+    @api.depends('contract_it_devices_laptops', 'contract_it_devices_desktops', 'contract_it_devices_software')
+    def _compute_contract_devices_summary(self):
+        for partner in self:
+            laptops = partner.contract_it_devices_laptops or 0
+            desktops = partner.contract_it_devices_desktops or 0
+            software = partner.contract_it_devices_software or 0
+            partner.contract_devices_summary = f"{laptops}L / {desktops}S / {software}SV"
 
     street_number = fields.Char(
         string="Número",
@@ -339,6 +352,67 @@ class Partner(models.Model):
         domain=[('is_company', '=', True)],
         help="Cuentas hijas asociadas a esta empresa (sedes)",
     )
+    kpi_ticket_active_count = fields.Integer(
+        string="Casos activos",
+        compute="_compute_helpdesk_kpis",
+        store=False,
+    )
+    kpi_ticket_done_count = fields.Integer(
+        string="Casos resueltos",
+        compute="_compute_helpdesk_kpis",
+        store=False,
+    )
+    kpi_ticket_done_hours = fields.Float(
+        string="Horas invertidas",
+        compute="_compute_helpdesk_kpis",
+        store=False,
+        digits=(16, 2),
+    )
+    ticket_ids = fields.Many2many(
+        'helpdesk.ticket',
+        string="Tickets de servicio",
+        compute="_compute_ticket_ids",
+        store=False,
+    )
+
+    def _get_helpdesk_ticket_domain(self):
+        self.ensure_one()
+        if 'helpdesk.ticket' not in self.env:
+            return [('id', '=', 0)]
+        ticket_model = self.env['helpdesk.ticket']
+        if 'partner_id' in ticket_model._fields:
+            return [('partner_id', 'child_of', self.id)]
+        return [('customer_id', 'child_of', self.id)]
+
+    def _compute_ticket_ids(self):
+        if 'helpdesk.ticket' not in self.env:
+            for partner in self:
+                partner.ticket_ids = False
+            return
+
+        Ticket = self.env['helpdesk.ticket']
+        for partner in self:
+            partner.ticket_ids = Ticket.search(partner._get_helpdesk_ticket_domain())
+
+    def _compute_helpdesk_kpis(self):
+        if 'helpdesk.ticket' not in self.env:
+            for partner in self:
+                partner.kpi_ticket_active_count = 0
+                partner.kpi_ticket_done_count = 0
+                partner.kpi_ticket_done_hours = 0.0
+            return
+
+        Ticket = self.env['helpdesk.ticket']
+        for partner in self:
+            tickets = Ticket.search(partner._get_helpdesk_ticket_domain())
+            active_tickets = tickets.filtered(lambda ticket: ticket.state == 'active')
+            done_tickets = tickets.filtered(lambda ticket: ticket.state == 'done')
+            partner.kpi_ticket_active_count = len(active_tickets)
+            partner.kpi_ticket_done_count = len(done_tickets)
+            if 'logged_hours_total' in Ticket._fields:
+                partner.kpi_ticket_done_hours = sum(done_tickets.mapped('logged_hours_total'))
+            else:
+                partner.kpi_ticket_done_hours = 0.0
 
     def get_formview_id(self, access_uid=None):
         self.ensure_one()

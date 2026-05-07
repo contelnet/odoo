@@ -94,7 +94,7 @@
                                         </div>
                                         <div style="background: #f8f9fa; border-radius: 8px; padding: 0.7rem 1.2rem; min-width: 110px; text-align: center; box-shadow: 0 1px 4px #0001;">
                                             <div style="font-size: 1.1rem; color: #2a2a2a; font-weight: 600;">Dispositivos</div>
-                                            <t t-esc="record.contract_it_devices_laptops or 0"/>L / <t t-esc="record.contract_it_devices_desktops or 0"/>S / <t t-esc="record.contract_it_devices_software or 0"/>SV
+                                            <field name="contract_devices_summary" readonly="1" nolabel="1"/>
                                         </div>
                                     </div>
                                 </div>
@@ -274,12 +274,6 @@
                             </group>
                         </page>
 
-                        <page string="Detalles">
-                            <group>
-                                <field name="notes"/>
-                            </group>
-                        </page>
-
                         <page string="Activos y ubicaciones">
                             <group>
                                 <field name="location_search" string="Buscar" placeholder="Buscar por ubicación o dirección..."/>
@@ -301,40 +295,26 @@
                                 </field>
                             </group>
                         </page>
-                        <page string="Servicio"/>
-                                                <page string="Servicio">
-                                                    <div class="o_partner_service_panel" style="display: flex; flex-wrap: wrap; gap: 2rem;">
-                                                        <div style="flex: 1 1 400px; min-width: 350px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
-                                                            <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Casos activos</h3>
-                                                            <field name="ticket_ids" domain="[('customer_id', '=', id), ('state', '=', 'active')]" context="{'default_customer_id': id}" mode="tree" nolabel="1">
-                                                                <tree string="Casos activos" create="false" delete="false">
-                                                                    <field name="number" string="Nº"/>
-                                                                    <field name="name" string="Título"/>
-                                                                    <field name="user_id" string="Responsable"/>
-                                                                    <field name="priority" widget="priority"/>
-                                                                    <field name="stage_id" string="Etapa"/>
-                                                                    <field name="state" string="Estado" widget="badge"/>
-                                                                    <field name="create_date" string="Creado"/>
-                                                                </tree>
-                                                            </field>
-                                                        </div>
-                                                        <div style="flex: 1 1 400px; min-width: 350px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
-                                                            <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Casos resueltos</h3>
-                                                            <field name="ticket_ids" domain="[('customer_id', '=', id), ('state', '=', 'done')]" context="{'default_customer_id': id}" mode="tree" nolabel="1">
-                                                                <tree string="Casos resueltos" create="false" delete="false">
-                                                                    <field name="number" string="Nº"/>
-                                                                    <field name="name" string="Título"/>
-                                                                    <field name="user_id" string="Responsable"/>
-                                                                    <field name="priority" widget="priority"/>
-                                                                    <field name="stage_id" string="Etapa"/>
-                                                                    <field name="state" string="Estado" widget="badge"/>
-                                                                    <field name="closed_date" string="Cerrado"/>
-                                                                </tree>
-                                                            </field>
-                                                        </div>
-                                                    </div>
-                                                </page>
-                        <page string="Archivo"/>
+                        <page string="Servicio">
+                            <div class="o_partner_service_panel" style="display: flex; flex-wrap: wrap; gap: 2rem;">
+                                <div style="flex: 1 1 400px; min-width: 350px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
+                                    <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Casos activos</h3>
+                                    <field name="kpi_ticket_active_count" readonly="1" nolabel="1"/>
+                                </div>
+                                <div style="flex: 1 1 400px; min-width: 350px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
+                                    <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Casos resueltos</h3>
+                                    <field name="kpi_ticket_done_count" readonly="1" nolabel="1"/>
+                                    <div style="margin-top: 0.75rem; font-size: 0.95rem; color: #666;">
+                                        Horas invertidas: <field name="kpi_ticket_done_hours" readonly="1" nolabel="1"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </page>
+                        <page string="Archivos">
+                            <group>
+                                <field name="notes"/>
+                            </group>
+                        </page>
                     </notebook>
                 </sheet>
             </form>
