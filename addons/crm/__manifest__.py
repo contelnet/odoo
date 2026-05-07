@@ -20,6 +20,7 @@
         'contacts',
         'digest',
         'phone_validation',
+        'helpdesk_mgmt',
     ],
     'data': [
         'security/crm_security.xml',

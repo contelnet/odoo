@@ -82,15 +82,15 @@
                                     <div class="o_partner_kpis" style="display: flex; gap: 1.2rem;">
                                         <div style="background: #f8f9fa; border-radius: 8px; padding: 0.7rem 1.2rem; min-width: 110px; text-align: center; box-shadow: 0 1px 4px #0001;">
                                             <div style="font-size: 1.1rem; color: #2a2a2a; font-weight: 600;">Casos activos</div>
-                                            <t t-esc="len([t for t in record.ticket_ids if t.state == 'active'])"/>
+                                            <field name="kpi_ticket_active_count" readonly="1" nolabel="1"/>
                                         </div>
                                         <div style="background: #f8f9fa; border-radius: 8px; padding: 0.7rem 1.2rem; min-width: 110px; text-align: center; box-shadow: 0 1px 4px #0001;">
                                             <div style="font-size: 1.1rem; color: #2a2a2a; font-weight: 600;">Casos resueltos</div>
-                                            <t t-esc="len([t for t in record.ticket_ids if t.state == 'done'])"/>
+                                            <field name="kpi_ticket_done_count" readonly="1" nolabel="1"/>
                                         </div>
                                         <div style="background: #f8f9fa; border-radius: 8px; padding: 0.7rem 1.2rem; min-width: 110px; text-align: center; box-shadow: 0 1px 4px #0001;">
                                             <div style="font-size: 1.1rem; color: #2a2a2a; font-weight: 600;">Horas invertidas</div>
-                                            <t t-esc="sum([t.logged_hours_total for t in record.ticket_ids if t.state == 'done']) | round(2)"/>
+                                            <field name="kpi_ticket_done_hours" readonly="1" nolabel="1"/>
                                         </div>
                                         <div style="background: #f8f9fa; border-radius: 8px; padding: 0.7rem 1.2rem; min-width: 110px; text-align: center; box-shadow: 0 1px 4px #0001;">
                                             <div style="font-size: 1.1rem; color: #2a2a2a; font-weight: 600;">Dispositivos</div>
@@ -110,9 +110,9 @@
                                 </div>
                                 <div style="flex: 1 1 320px; min-width: 320px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
                                     <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Relación y contacto principal</h3>
-                                    <field name="parent_id" string="Cuenta primaria" domain="[("is_company", '=', True), ("id", '!=', id)]" placeholder="Cuenta primaria" context="{'form_view_ref': 'crm.view_partner_form_crm_company'}"/>
+                                    <field name="parent_id" string="Cuenta primaria" domain="[('is_company', '=', True), ('id', '!=', id)]" placeholder="Cuenta primaria" context="{'form_view_ref': 'crm.view_partner_form_crm_company'}"/>
                                     <field name="relationship_type_id" string="Tipo de relación"/>
-                                    <field name="main_contact_id" string="Contacto principal" domain="[("parent_id", '=', id), ("type", '=', 'contact')]" placeholder="Contacto principal"/>
+                                    <field name="main_contact_id" string="Contacto principal" domain="[('parent_id', '=', id), ('type', '=', 'contact')]" placeholder="Contacto principal"/>
                                 </div>
                                 <div style="flex: 1 1 320px; min-width: 320px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
                                     <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Privacidad y LOPD</h3>
@@ -127,7 +127,7 @@
                                 <div style="flex: 2 1 400px; min-width: 320px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
                                     <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Dirección principal</h3>
                                     <field name="available_location_ids" invisible="1"/>
-                                    <field name="location_id" string="Ubicación" domain="[("id", 'in', available_location_ids)]" options="{'no_create': True}" placeholder="Selecciona una ubicación"/>
+                                    <field name="location_id" string="Ubicación" domain="[('id', 'in', available_location_ids)]" options="{'no_create': True}" placeholder="Selecciona una ubicación"/>
                                     <field name="street" string="Calle" placeholder="Ej: C/ Asturias"/>
                                     <field name="street_number" string="Número" placeholder="Ej: 21"/>
                                     <field name="street2" string="Portal / Piso / Oficina" placeholder="Ej: Entresuelo B"/>
@@ -147,7 +147,7 @@
                             <!-- Contactos -->
                             <div class="o_partner_contacts_panel" style="background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001; margin-bottom: 2rem;">
                                 <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Contactos</h3>
-                                <field name="child_ids" mode="list,form" editable="bottom" domain="[("is_company", '=', False), ("type", '=', 'contact')]" context="{'default_parent_id': id, 'default_type': 'contact', 'default_is_company': False, 'form_view_ref': 'crm.view_partner_form_crm_person'}">
+                                <field name="child_ids" mode="list,form" editable="bottom" domain="[('is_company', '=', False), ('type', '=', 'contact')]" context="{'default_parent_id': id, 'default_type': 'contact', 'default_is_company': False, 'form_view_ref': 'crm.view_partner_form_crm_person'}">
                                     <list>
                                         <field name="name" string="Nombre completo"/>
                                         <field name="email" string="Correo electrónico"/>
