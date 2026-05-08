@@ -86,3 +86,144 @@
         min-height: 540px;
     }
 }
+
+/* ------------------------------
+   Professional + Responsive UI
+   ------------------------------ */
+.o_form_view.o_crm_partner_form {
+    .o_partner_header_panel,
+    .o_partner_panels,
+    .o_partner_address_panel,
+    .o_partner_contacts_panel,
+    .o_partner_service_panel {
+        width: 100%;
+    }
+
+    .o_partner_header_panel {
+        gap: 1.25rem;
+        padding: 1.25rem 0 1rem;
+        margin-bottom: 1.25rem;
+
+        .o_partner_avatar {
+            border: 1px solid var(--bs-border-color);
+            background: var(--bs-body-bg);
+        }
+    }
+
+    .o_partner_kpis {
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(125px, 1fr));
+        gap: .75rem !important;
+        width: 100%;
+
+        > div {
+            margin: 0 !important;
+            min-width: 0 !important;
+            border: 1px solid var(--bs-border-color);
+            background: var(--bs-body-bg) !important;
+        }
+    }
+
+    .o_partner_panels,
+    .o_partner_address_panel,
+    .o_partner_service_panel {
+        gap: 1rem !important;
+
+        > div {
+            border: 1px solid var(--bs-border-color);
+            background: var(--bs-body-bg) !important;
+        }
+    }
+
+    .o_partner_contacts_panel {
+        border: 1px solid var(--bs-border-color);
+        background: var(--bs-body-bg) !important;
+    }
+
+    .o_notebook .nav-tabs .nav-link {
+        font-size: .94rem;
+    }
+}
+
+@media (max-width: 1199.98px) {
+    .o_form_view.o_crm_partner_form {
+        .o_form_sheet {
+            max-width: 100%;
+            padding: 14px 14px;
+        }
+
+        .o_partner_kpis {
+            grid-template-columns: repeat(2, minmax(125px, 1fr));
+        }
+    }
+}
+
+@media (max-width: 991.98px) {
+    .o_form_view.o_crm_partner_form {
+        .o_partner_header_panel {
+            flex-direction: column !important;
+            align-items: stretch !important;
+
+            > div:last-child {
+                margin-left: 0 !important;
+                align-items: stretch !important;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+
+        .o_partner_panels,
+        .o_partner_address_panel,
+        .o_partner_service_panel {
+            > div {
+                min-width: 100% !important;
+                flex: 1 1 100% !important;
+            }
+        }
+
+        .o_notebook {
+            .nav-tabs {
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                scrollbar-width: thin;
+
+                .nav-item {
+                    flex: 0 0 auto;
+                }
+            }
+        }
+    }
+}
+
+@media (max-width: 767.98px) {
+    .o_form_view.o_crm_partner_form {
+        .o_form_sheet {
+            padding: 10px 10px;
+        }
+
+        .o_group {
+            padding: 10px 10px;
+        }
+
+        .o_partner_kpis {
+            grid-template-columns: 1fr;
+        }
+
+        .o_partner_header_panel {
+            .o_partner_avatar {
+                width: 88px !important;
+                height: 88px !important;
+            }
+        }
+
+        .o_partner_contacts_panel,
+        .o_partner_panels > div,
+        .o_partner_address_panel > div,
+        .o_partner_service_panel > div {
+            padding: 1rem !important;
+            border-radius: .65rem !important;
+        }
+    }
+}
