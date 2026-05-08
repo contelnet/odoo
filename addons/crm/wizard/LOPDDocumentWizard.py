@@ -11,15 +11,21 @@ class LOPDDocumentWizard(models.TransientModel):
         required=True,
         default='lopd',
     )
-    name = fields.Char(string='Nombre del documento', required=True, default='LOPD_Firmada')
+    name = fields.Char(string='Nombre del documento', required=False)
     datas = fields.Binary(string='Archivo', required=True)
     filename = fields.Char(string='Nombre del archivo')
 
     def action_import_document(self):
         self.ensure_one()
 
+        # Generar nombre automático si no se proporciona
+        doc_name = self.name or self.filename or (
+            f"LOPD_{self.partner_id.name}" if self.document_type == 'lopd'
+            else f"SEPA_{self.partner_id.name}"
+        )
+
         attachment = self.env['ir.attachment'].create({
-            'name': self.name,
+            'name': doc_name,
             'datas': self.datas,
             'res_model': 'res.partner',
             'res_id': self.partner_id.id,
