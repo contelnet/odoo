@@ -600,19 +600,21 @@ class Partner(models.Model):
             partner.state_id = location.state_id
             partner.country_id = location.country_id
 
-    @api.constrains('location_id', 'parent_id', 'is_company')
-    def _check_location_belongs_to_main_company(self):
-        for partner in self:
-            if not partner.location_id:
-                continue
-
-            main_company = partner._get_main_company_for_locations()
-            available = main_company.location_ids if main_company else partner.location_ids
-
-            if partner.location_id not in available:
-                raise ValidationError(
-                    _("La ubicación seleccionada no pertenece a la empresa principal.")
-                )
+    # @api.constrains('location_id', 'parent_id', 'is_company')
+    # def _check_location_belongs_to_main_company(self):
+    #     Validación demasiado restrictiva para ubicaciones compartidas entre
+    #     empresa principal y filiales. Desactivada para permitir flexibilidad.
+    #     for partner in self:
+    #         if not partner.location_id:
+    #             continue
+    #
+    #         main_company = partner._get_main_company_for_locations()
+    #         available = main_company.location_ids if main_company else partner.location_ids
+    #
+    #         if partner.location_id not in available:
+    #             raise ValidationError(
+    #                 _("La ubicación seleccionada no pertenece a la empresa principal.")
+    #             )
 
     @api.depends(
         'location_search',
