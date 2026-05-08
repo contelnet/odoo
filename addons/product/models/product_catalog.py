@@ -9,6 +9,15 @@ from odoo.tools.float_utils import float_compare, float_is_zero
 class Product(models.Model):
     _inherit = "product.template"
 
+    def _setup_complete(self):
+        res = super()._setup_complete()
+        # Forzar desde módulo product que no se valide compañía en este campo
+        # cuando lo añade el módulo helpdesk_product.
+        helpdesk_location_field = self._fields.get("helpdesk_location_id")
+        if helpdesk_location_field:
+            helpdesk_location_field.check_company = False
+        return res
+
     @api.model
     def _get_missing_comodel_fields(self, field_names=None):
         """Devuelve campos relacionales cuyo comodel no existe en el registro.
@@ -1289,8 +1298,6 @@ class Product(models.Model):
             location_company_id = location.company_id.id if location else False
             if not vals.get("company_id"):
                 vals["company_id"] = location_company_id or self.env.company.id
-            elif vals.get("company_id") != location_company_id:
-                raise ValidationError("La compañía del producto y la de la ubicación deben coincidir.")
         result = super().write(vals)
         self._apply_stock_sync_from_values(vals)
         if "piece_input" in vals or "piece_product_id" in vals or "product_mode" in vals:
