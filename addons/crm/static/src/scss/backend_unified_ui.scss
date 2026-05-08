@@ -1,0 +1,190 @@
+/*
+ * Unified backend visual system (global)
+ * Scope: all backend apps/modules once CRM is installed.
+ */
+
+.o_web_client {
+    --crm-ui-radius: 12px;
+    --crm-ui-radius-sm: 8px;
+    --crm-ui-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    --crm-ui-shadow-sm: 0 2px 10px rgba(15, 23, 42, 0.05);
+    --crm-ui-border: var(--bs-border-color, #dee2e6);
+    --crm-ui-surface: var(--bs-body-bg, #fff);
+    --crm-ui-muted-surface: var(--bs-secondary-bg, #f8f9fa);
+
+    .o_action_manager,
+    .o_content,
+    .o_view_controller,
+    .o_renderer {
+        font-feature-settings: "cv01", "cv02", "cv03";
+    }
+
+    /* ---------- Control panel ---------- */
+    .o_control_panel {
+        border-bottom: 1px solid var(--crm-ui-border);
+        background: var(--crm-ui-surface);
+
+        .o_control_panel_main_buttons,
+        .o_cp_searchview {
+            margin-bottom: 6px;
+        }
+
+        .o_searchview {
+            border-radius: 999px;
+            border: 1px solid var(--crm-ui-border);
+            box-shadow: none;
+            background: var(--crm-ui-surface);
+        }
+    }
+
+    /* ---------- Buttons ---------- */
+    .btn {
+        border-radius: 10px;
+        font-weight: 600;
+    }
+
+    /* ---------- Form views ---------- */
+    .o_form_view {
+        .o_form_sheet_bg {
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.01), transparent 140px);
+            padding: 14px;
+        }
+
+        .o_form_sheet {
+            border: 1px solid var(--crm-ui-border);
+            border-radius: var(--crm-ui-radius);
+            box-shadow: var(--crm-ui-shadow);
+            background: var(--crm-ui-surface);
+        }
+
+        .o_group {
+            border-radius: var(--crm-ui-radius-sm);
+        }
+
+        .o_notebook {
+            .nav-tabs {
+                border-bottom: 1px solid var(--crm-ui-border);
+
+                .nav-link {
+                    border-radius: 10px 10px 0 0;
+                    font-weight: 600;
+                    padding: 10px 14px;
+                }
+            }
+        }
+    }
+
+    /* ---------- List views ---------- */
+    .o_list_view {
+        border-radius: var(--crm-ui-radius-sm);
+
+        .table-responsive {
+            border: 1px solid var(--crm-ui-border);
+            border-radius: var(--crm-ui-radius-sm);
+            background: var(--crm-ui-surface);
+            box-shadow: var(--crm-ui-shadow-sm);
+        }
+
+        .o_list_table {
+            thead {
+                th {
+                    position: sticky;
+                    top: 0;
+                    z-index: 2;
+                    background: var(--crm-ui-muted-surface);
+                    border-bottom: 1px solid var(--crm-ui-border);
+                    font-weight: 700;
+                    letter-spacing: .01em;
+                }
+            }
+        }
+    }
+
+    /* ---------- Kanban ---------- */
+    .o_kanban_renderer {
+        .o_kanban_record {
+            border-radius: var(--crm-ui-radius);
+            border: 1px solid var(--crm-ui-border);
+            box-shadow: var(--crm-ui-shadow-sm);
+            background: var(--crm-ui-surface);
+            transition: transform .15s ease, box-shadow .15s ease;
+
+            &:hover {
+                transform: translateY(-1px);
+                box-shadow: var(--crm-ui-shadow);
+            }
+        }
+    }
+
+    /* ---------- Activity/Chatter ---------- */
+    .o-mail-Chatter,
+    .o-mail-Activity,
+    .o_ActivityView {
+        .o-mail-Chatter-top,
+        .o_ActivityView_header {
+            border-bottom: 1px solid var(--crm-ui-border);
+        }
+    }
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1199.98px) {
+    .o_web_client {
+        .o_form_view {
+            .o_form_sheet_bg {
+                padding: 10px;
+            }
+        }
+    }
+}
+
+@media (max-width: 991.98px) {
+    .o_web_client {
+        .o_control_panel {
+            .o_control_panel_main_buttons {
+                gap: 6px;
+                flex-wrap: wrap;
+            }
+        }
+
+        .o_form_view {
+            .o_form_sheet {
+                border-radius: 10px;
+            }
+        }
+    }
+}
+
+@media (max-width: 767.98px) {
+    .o_web_client {
+        .o_control_panel {
+            .o_cp_top,
+            .o_cp_bottom {
+                row-gap: 8px;
+            }
+
+            .o_cp_searchview {
+                min-width: 100%;
+            }
+        }
+
+        .o_form_view {
+            .o_form_sheet_bg {
+                padding: 6px;
+            }
+
+            .o_form_sheet {
+                border-radius: 8px;
+                box-shadow: var(--crm-ui-shadow-sm);
+            }
+        }
+
+        .o_list_view .table-responsive {
+            border-radius: 8px;
+        }
+
+        .o_kanban_renderer .o_kanban_record {
+            border-radius: 10px;
+        }
+    }
+}
