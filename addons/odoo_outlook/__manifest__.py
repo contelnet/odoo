@@ -12,15 +12,6 @@
         "views/outlook.xml",
         "records/ir.model.access.csv"
     ],
-    "assets": {
-        "web.assets_backend": [
-            "odoo_outlook/static/src/js/thread.js",
-            "odoo_outlook/static/src/css/outlook.css"
-        ]
-    },
-    "qweb": [
-        "views/templates.xml"
-    ],
     "images": [
         "static/description/oregano.jpg"
     ],

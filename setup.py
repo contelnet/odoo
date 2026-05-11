@@ -50,6 +50,7 @@ setup(
         'PyPDF2',
         'pyserial',
         'python-dateutil',
+        'python-docx',
         'python-stdnum',
         'pytz',
         'pyusb >= 1.0.0b1',

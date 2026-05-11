@@ -32,13 +32,6 @@
         </record>
 
 
-        <template id="assets_backend" name="odoo_outlook assets" inherit_id="web.assets_backend">
-            <xpath expr="." position="inside">
-                <script type="text/javascript" src="/odoo_outlook/static/src/js/thread.js"/>
-                <link href="/odoo_outlook/static/src/css/outlook.css" rel="stylesheet"/>
-            </xpath>
-        </template>
-
         <menuitem id="sync_top_menu" name="Synchronize" sequence="1000" action="outlook_sync_action"/>
     </data>
 </odoo>
