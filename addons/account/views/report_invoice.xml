@@ -237,51 +237,6 @@
                                                 </t>
                                             </t>
                                         </table>
-                                        <!-- DESGLOSE DE TOTALES: Base, IVA, Canon, Mano de Obra, Total -->
-                                        <table class="o_total_table table table-borderless avoid-page-break-inside">
-                                            <tr>
-                                                <td><strong>Base Imponible (sin canon)</strong></td>
-                                                <td class="text-end">
-                                                    <span t-esc="o.amount_untaxed - (o.canon_total_ote or 0.0)"/>
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td><strong>IVA Productos</strong></td>
-                                                <td class="text-end">
-                                                    <span t-esc="o._get_iva_productos()"/>
-                                                </td>
-                                            </tr>
-                                            <t t-if="o.canon_total_ote">
-                                                <tr>
-                                                    <td><strong>Canon OTE <span style='font-size:10px;'>(exento de IVA)</span></strong></td>
-                                                    <td class="text-end">
-                                                        <span t-field="o.canon_total_ote" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
-                                                    </td>
-                                                </tr>
-                                            </t>
-                                            <t t-if="o.labor_total_ote">
-                                                <tr>
-                                                    <td><strong>Mano de Obra OTE</strong></td>
-                                                    <td class="text-end">
-                                                        <span t-field="o.labor_total_ote" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
-                                                    </td>
-                                                </tr>
-                                            </t>
-                                            <t t-if="o.canon_total">
-                                                <tr>
-                                                    <td><strong>Canon</strong> <span style='font-size:10px;'>(exento de IVA)</span></td>
-                                                    <td class="text-end">
-                                                        <span t-field="o.canon_total" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
-                                                    </td>
-                                                </tr>
-                                            </t>
-                                            <tr>
-                                                <td><strong>Total</strong></td>
-                                                <td class="text-end">
-                                                    <span t-field="o.amount_total" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
-                                                </td>
-                                            </tr>
-                                        </table>
                                     </div>
                                 </div>
                                 <div class="mb-2">

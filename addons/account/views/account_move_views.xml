@@ -29,6 +29,7 @@
         <record id="view_move_form_canon_footer" model="ir.ui.view">
             <field name="name">account.move.form.canon.footer</field>
             <field name="model">account.move</field>
+            <field name="active" eval="False"/>
             <field name="inherit_id" ref="account.view_move_form"/>
             <field name="arch" type="xml">
                 <xpath expr="//sheet" position="inside">
@@ -40,6 +41,21 @@
                             <field name="canon_total" readonly="1" widget="monetary"/>
                         </div>
                     </div>
+                </xpath>
+            </field>
+        </record>
+
+        <record id="view_move_form_helpdesk_recorded_hours" model="ir.ui.view">
+            <field name="name">account.move.form.helpdesk.recorded.hours</field>
+            <field name="model">account.move</field>
+            <field name="inherit_id" ref="account.view_move_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//group[@class='oe_invoice_lines_tab overflow-hidden']/group[1]/field[@name='narration']" position="replace">
+                    <div class="o_row" invisible="not has_helpdesk_ot">
+                        <span class="me-2"><strong>Horas de trabajo registradas:</strong></span>
+                        <field name="ote_recorded_time_display" nolabel="1" class="oe_inline"/>
+                    </div>
+                    <field name="narration" placeholder="Terms and Conditions" nolabel="1" invisible="has_helpdesk_ot"/>
                 </xpath>
             </field>
         </record>

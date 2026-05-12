@@ -121,6 +121,49 @@ class AccountMove(models.Model):
         currency_field="currency_id",
         help="Total canon normal en la factura (no OTE)."
         )
+    has_helpdesk_ot = fields.Boolean(
+        string="Factura desde OTE",
+        compute="_compute_helpdesk_ot_fields",
+        store=False,
+    )
+    ote_recorded_time_display = fields.Char(
+        string="Horas de trabajo registradas",
+        compute="_compute_helpdesk_ot_fields",
+        inverse="_inverse_ote_recorded_time_display",
+        readonly=False,
+        store=False,
+    )
+
+    def _get_related_helpdesk_ots(self):
+        ot_model = self.env.get("helpdesk.ticket.ot")
+        if not ot_model:
+            return False
+        return ot_model.search([("invoice_id", "in", self.ids)])
+
+    def _compute_helpdesk_ot_fields(self):
+        ots = self._get_related_helpdesk_ots()
+        ot_by_invoice = {ot.invoice_id.id: ot for ot in ots} if ots else {}
+        for move in self:
+            ot = ot_by_invoice.get(move.id)
+            move.has_helpdesk_ot = bool(ot)
+            move.ote_recorded_time_display = ot._get_recorded_hours_display() if ot else False
+
+    def _inverse_ote_recorded_time_display(self):
+        ots = self._get_related_helpdesk_ots()
+        ot_by_invoice = {ot.invoice_id.id: ot for ot in ots} if ots else {}
+        time_pattern = re.compile(r"^\s*(\d{1,2}):(\d{2}):(\d{2})\s*$")
+        for move in self:
+            ot = ot_by_invoice.get(move.id)
+            if not ot:
+                continue
+            value = move.ote_recorded_time_display or ""
+            match = time_pattern.match(value)
+            if not match:
+                raise ValidationError(_("El formato de horas debe ser HH:MM:SS."))
+            hours, minutes, seconds = (int(part) for part in match.groups())
+            total_seconds = hours * 3600 + minutes * 60 + seconds
+            ot.write({"onsite_timer_elapsed_seconds": total_seconds})
+            ot._sync_invoice_recorded_hours(move)
 
     @api.depends('invoice_line_ids.price_subtotal', 'invoice_line_ids.product_id', 'invoice_line_ids.canon_amount', 'invoice_line_ids.is_canon_line')
     def _compute_breakdown_totals(self):
