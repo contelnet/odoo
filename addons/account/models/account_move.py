@@ -4943,15 +4943,18 @@ class AccountMove(models.Model):
                 return _("Draft (%(currency_amount)s)", currency_amount=currency_amount)
         name = ''
         if self.state == 'draft':
-            name += {
-                'out_invoice': _('Draft Invoice'),
-                'out_refund': _('Draft Credit Note'),
-                'in_invoice': _('Draft Bill'),
-                'in_refund': _('Draft Vendor Credit Note'),
-                'out_receipt': _('Draft Sales Receipt'),
-                'in_receipt': _('Draft Purchase Receipt'),
-                'entry': _('Draft Entry'),
-            }[self.move_type]
+            if self.move_type == 'out_invoice' and self.has_helpdesk_ot:
+                name += _('Albarán')
+            else:
+                name += {
+                    'out_invoice': _('Draft Invoice'),
+                    'out_refund': _('Draft Credit Note'),
+                    'in_invoice': _('Draft Bill'),
+                    'in_refund': _('Draft Vendor Credit Note'),
+                    'out_receipt': _('Draft Sales Receipt'),
+                    'in_receipt': _('Draft Purchase Receipt'),
+                    'entry': _('Draft Entry'),
+                }[self.move_type]
         if self.name and self.name != '/':
             name = f"{name} {self.name}".strip()
             if self.env.context.get('input_full_display_name'):

@@ -18,6 +18,16 @@
                         <div class="col-6" name="address_not_same_as_shipping">
                             <t t-set="address">
                                 <address class="mb-0" t-field="o.partner_id" t-options='{"widget": "contact", "fields": ["address", "name"], "no_marker": True}'/>
+                                <div t-if="o.partner_id.phone or o.partner_id.mobile">
+                                    <strong>Teléfono</strong>:
+                                    <span t-field="o.partner_id.phone" t-if="o.partner_id.phone"/>
+                                    <span t-field="o.partner_id.mobile" t-elif="o.partner_id.mobile"/>
+                                </div>
+                                <div t-if="o.partner_id.billing_invoice_email or o.partner_id.email">
+                                    <strong>Email facturación</strong>:
+                                    <span t-field="o.partner_id.billing_invoice_email" t-if="o.partner_id.billing_invoice_email"/>
+                                    <span t-field="o.partner_id.email" t-elif="o.partner_id.email"/>
+                                </div>
                                 <div t-if="o.partner_id.vat" id="partner_vat_address_not_same_as_shipping">
                                     <t t-if="o.company_id.account_fiscal_country_id.vat_label" t-out="o.company_id.account_fiscal_country_id.vat_label" id="inv_tax_id_label"/>
                                     <t t-else="">Tax ID</t>: <span t-field="o.partner_id.vat"/>
@@ -32,6 +42,16 @@
                         <div class="offset-col-6 col-6" name="address_same_as_shipping">
                             <t t-set="address">
                                 <address class="mb-0" t-field="o.partner_id" t-options='{"widget": "contact", "fields": ["address", "name"], "no_marker": True}'/>
+                                <div t-if="o.partner_id.phone or o.partner_id.mobile">
+                                    <strong>Teléfono</strong>:
+                                    <span t-field="o.partner_id.phone" t-if="o.partner_id.phone"/>
+                                    <span t-field="o.partner_id.mobile" t-elif="o.partner_id.mobile"/>
+                                </div>
+                                <div t-if="o.partner_id.billing_invoice_email or o.partner_id.email">
+                                    <strong>Email facturación</strong>:
+                                    <span t-field="o.partner_id.billing_invoice_email" t-if="o.partner_id.billing_invoice_email"/>
+                                    <span t-field="o.partner_id.email" t-elif="o.partner_id.email"/>
+                                </div>
                                 <div t-if="o.partner_id.vat" id="partner_vat_address_same_as_shipping">
                                     <t t-if="o.company_id.account_fiscal_country_id.vat_label" t-out="o.company_id.account_fiscal_country_id.vat_label" id="inv_tax_id_label"/>
                                     <t t-else="">Tax ID</t>: <span t-field="o.partner_id.vat"/>
@@ -46,6 +66,16 @@
                         <div class="offset-col-6 col-6" name="no_shipping">
                             <t t-set="address">
                                 <address class="mb-0" t-field="o.partner_id" t-options='{"widget": "contact", "fields": ["address", "name"], "no_marker": True}'/>
+                                <div t-if="o.partner_id.phone or o.partner_id.mobile">
+                                    <strong>Teléfono</strong>:
+                                    <span t-field="o.partner_id.phone" t-if="o.partner_id.phone"/>
+                                    <span t-field="o.partner_id.mobile" t-elif="o.partner_id.mobile"/>
+                                </div>
+                                <div t-if="o.partner_id.billing_invoice_email or o.partner_id.email">
+                                    <strong>Email facturación</strong>:
+                                    <span t-field="o.partner_id.billing_invoice_email" t-if="o.partner_id.billing_invoice_email"/>
+                                    <span t-field="o.partner_id.email" t-elif="o.partner_id.email"/>
+                                </div>
                                 <div t-if="o.partner_id.vat" id="partner_vat_no_shipping">
                                     <t t-if="o.company_id.account_fiscal_country_id.vat_label" t-out="o.company_id.account_fiscal_country_id.vat_label" id="inv_tax_id_label"/>
                                     <t t-else="">Tax ID</t>: <span t-field="o.partner_id.vat"/>
@@ -59,10 +89,11 @@
                 </div>
                 <div class="clearfix invoice_main">
                     <div class="page mb-4">
+                        <t t-set="is_helpdesk_delivery_note" t-value="o.has_helpdesk_ot and o.move_type == 'out_invoice' and o.state == 'draft'"/>
                         <t t-set="layout_document_title">
-                            <span t-if="not proforma"></span>
-                            <span t-else="">PROFORMA</span>
-                            <span t-if="o.move_type == 'out_invoice' and o.state == 'posted'">Invoice</span>
+                            <span t-if="proforma and not is_helpdesk_delivery_note">PROFORMA</span>
+                            <span t-if="is_helpdesk_delivery_note">ALBARÁN</span>
+                            <span t-elif="o.move_type == 'out_invoice' and o.state == 'posted'">Invoice</span>
                             <span t-elif="o.move_type == 'out_invoice' and o.state == 'draft'">Draft Invoice</span>
                             <span t-elif="o.move_type == 'out_invoice' and o.state == 'cancel'">Cancelled Invoice</span>
                             <span t-elif="o.move_type == 'out_refund' and o.state == 'posted'">Credit Note</span>
@@ -115,10 +146,13 @@
 
                         <t t-set="display_discount" t-value="True"/>
                         <div class="oe_structure"></div>
+                        <t t-set="show_helpdesk_product_columns" t-value="o.has_helpdesk_ot"/>
                         <t t-set="has_long_desc" t-value="any(line.name and line.name.count('\n') > 30 for line in o.invoice_line_ids if line.name)"/>
                         <table class="o_has_total_table table o_main_table table-borderless mb-0" name="invoice_line_table">
                             <thead t-attf-style="#{has_long_desc and 'display: table-row-group;' or ''}">
                                 <tr>
+                                    <th name="th_part_number" class="text-start" t-if="show_helpdesk_product_columns"><span>Part Number</span></th>
+                                    <th name="th_product" class="text-start" t-if="show_helpdesk_product_columns"><span>Producto</span></th>
                                     <th name="th_description" class="text-start"><span>Description</span></th>
                                     <th name="th_quantity" class="text-end"><span>Quantity</span></th>
                                     <th name="th_priceunit" t-if="o.show_product_prices" t-attf-class="text-end text-nowrap {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}"><span>Unit Price</span></th>
@@ -142,6 +176,12 @@
 
                                     <tr t-att-class="'fw-bold o_line_section' if line.display_type == 'line_section' else 'fst-italic o_line_note' if line.display_type == 'line_note' else ''">
                                         <t t-if="line.display_type == 'product'" name="account_invoice_line_accountable">
+                                            <td name="account_invoice_line_part_number" t-if="show_helpdesk_product_columns">
+                                                <span t-field="line.helpdesk_part_number"/>
+                                            </td>
+                                            <td name="account_invoice_line_product" t-if="show_helpdesk_product_columns">
+                                                <span t-field="line.product_id"/>
+                                            </td>
                                             <td name="account_invoice_line_name">
                                                 <!-- Estilo especial para línea CANON -->
                                                 <span t-if="line.is_canon_line" style="color:#007bff;font-weight:bold;">[CANON] </span>
@@ -247,7 +287,7 @@
                                 </div>
 
                                 <!-- Tax totals summary (company currency) -->
-                                <t t-if="o.tax_totals.get('display_in_company_currency')">
+                                <t t-if="o.tax_totals.get('display_in_company_currency') and not o.has_helpdesk_ot">
                                     <t t-set="tax_totals" t-value="o.tax_totals"/>
                                     <t t-call="account.document_tax_totals_company_currency_template"/>
                                 </t>
