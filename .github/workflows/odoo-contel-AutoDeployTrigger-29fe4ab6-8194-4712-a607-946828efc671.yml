@@ -24,6 +24,13 @@ jobs:
       - name: Checkout to the branch
         uses: actions/checkout@v2
 
+      - name: Checkout helpdesk module
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.PAT_ACCESO_REPOS }}
+          repository: contelnet/helpdesk
+          path: helpdesk
+          
       - name: Azure Login
         uses: azure/login@v2
         with:
