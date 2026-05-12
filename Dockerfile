@@ -26,7 +26,7 @@ COPY ./helpdesk /mnt/extra-addons
 
 ENV TZ=Europe/Madrid
 
+USER odoo
+
 RUN echo "list_db = False" >> /etc/odoo/odoo.conf \
     && echo "proxy_mode = True" >> /etc/odoo/odoo.conf
-
-USER odoo
