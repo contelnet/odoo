@@ -135,10 +135,9 @@ class AccountMove(models.Model):
     )
 
     def _get_related_helpdesk_ots(self):
-        ot_model = self.env.get("helpdesk.ticket.ot")
-        if not ot_model:
+        if not self.env.registry.get("helpdesk.ticket.ot"):
             return False
-        return ot_model.search([("invoice_id", "in", self.ids)])
+        return self.env["helpdesk.ticket.ot"].search([("invoice_id", "in", self.ids)])
 
     def _compute_helpdesk_ot_fields(self):
         ots = self._get_related_helpdesk_ots()

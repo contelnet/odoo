@@ -90,6 +90,7 @@
                 <div class="clearfix invoice_main">
                     <div class="page mb-4">
                         <t t-set="is_helpdesk_delivery_note" t-value="o.has_helpdesk_ot and o.move_type == 'out_invoice' and o.state == 'draft'"/>
+                        <t t-set="display_helpdesk_prices" t-value="(not is_helpdesk_delivery_note) or o.show_product_prices"/>
                         <t t-set="layout_document_title">
                             <span t-if="proforma and not is_helpdesk_delivery_note">PROFORMA</span>
                             <span t-if="is_helpdesk_delivery_note">ALBARÁN</span>
@@ -155,12 +156,12 @@
                                     <th name="th_product" class="text-start" t-if="show_helpdesk_product_columns"><span>Producto</span></th>
                                     <th name="th_description" class="text-start"><span>Description</span></th>
                                     <th name="th_quantity" class="text-end"><span>Quantity</span></th>
-                                    <th name="th_priceunit" t-if="o.show_product_prices" t-attf-class="text-end text-nowrap {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}"><span>Unit Price</span></th>
-                                    <th name="th_discount" t-if="display_discount and o.show_product_prices" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
+                                    <th name="th_priceunit" t-if="display_helpdesk_prices" t-attf-class="text-end text-nowrap {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}"><span>Unit Price</span></th>
+                                    <th name="th_discount" t-if="display_discount and display_helpdesk_prices" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
                                         <span>Disc.%</span>
                                     </th>
-                                    <th name="th_taxes" t-if="o.show_product_prices" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}"><span>Taxes</span></th>
-                                    <th name="th_subtotal" t-if="o.show_product_prices" class="text-end">
+                                    <th name="th_taxes" t-if="display_helpdesk_prices" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}"><span>Taxes</span></th>
+                                    <th name="th_subtotal" t-if="display_helpdesk_prices" class="text-end">
                                         <span>Amount</span>
                                     </th>
                                 </tr>
@@ -177,14 +178,14 @@
                                     <tr t-att-class="'fw-bold o_line_section' if line.display_type == 'line_section' else 'fst-italic o_line_note' if line.display_type == 'line_note' else ''">
                                         <t t-if="line.display_type == 'product'" name="account_invoice_line_accountable">
                                             <td name="account_invoice_line_part_number" t-if="show_helpdesk_product_columns">
-                                                <span t-out="getattr(line, 'helpdesk_part_number', '')"/>
+                                                <span t-out="line._fields.get('helpdesk_part_number') and (line.helpdesk_part_number or '') or ''"/>
                                             </td>
                                             <td name="account_invoice_line_product" t-if="show_helpdesk_product_columns">
                                                 <span t-field="line.product_id"/>
                                             </td>
                                             <td name="account_invoice_line_name">
                                                 <!-- Estilo especial para línea CANON -->
-                                                <span t-if="getattr(line, 'is_canon_line', False)" style="color:#007bff;font-weight:bold;">[CANON] </span>
+                                                <span t-if="line._fields.get('is_canon_line') and line.is_canon_line" style="color:#007bff;font-weight:bold;">[CANON] </span>
                                                 <!-- Estilo especial para línea MANO DE OBRA (por nombre de producto) -->
                                                 <span t-if="line.product_id and 'mano de obra' in (line.product_id.display_name or '').lower()" style="color:#28a745;font-weight:bold;">[MANO DE OBRA] </span>
                                                 <span t-if="line.name" t-field="line.name" t-options="{'widget': 'text'}"/>
@@ -193,18 +194,18 @@
                                                 <span t-field="line.quantity" class="text-nowrap"/>
                                                 <span t-field="line.product_uom_id"  groups="uom.group_uom"/>
                                             </td>
-                                            <td name="td_price_unit" t-if="o.show_product_prices" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
+                                            <td name="td_price_unit" t-if="display_helpdesk_prices" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
                                                 <span class="text-nowrap" t-field="line.price_unit"/>
                                             </td>
-                                            <td name="td_discount" t-if="display_discount and o.show_product_prices" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
+                                            <td name="td_discount" t-if="display_discount and display_helpdesk_prices" t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
                                                 <span class="text-nowrap" t-field="line.discount"/>
                                             </td>
                                             <t t-set="taxes" t-value="', '.join([tax.invoice_label or tax.name for tax in line.tax_ids])"/>
                                             <t t-set="is_short_tax" t-value="taxes and len(taxes) &lt; 10"/>
-                                            <td name="td_taxes" t-if="o.show_product_prices" t-att-class="'text-end ' + ('d-none d-md-table-cell ' if report_type == 'html' else '') + ('text-nowrap' if is_short_tax else '')">
+                                            <td name="td_taxes" t-if="display_helpdesk_prices" t-att-class="'text-end ' + ('d-none d-md-table-cell ' if report_type == 'html' else '') + ('text-nowrap' if is_short_tax else '')">
                                                 <span t-out="taxes" id="line_tax_ids"/>
                                             </td>
-                                            <td name="td_subtotal" t-if="o.show_product_prices" class="text-end o_price_total">
+                                            <td name="td_subtotal" t-if="display_helpdesk_prices" class="text-end o_price_total">
                                                 <span class="text-nowrap" t-field="line.price_subtotal"/>
                                             </td>
                                         </t>
@@ -237,7 +238,7 @@
                             </tbody>
                         </table>
                         <div class="overflow-hidden">
-                            <div id="right-elements" t-attf-class="#{'col-5 mt-5' if report_type == 'pdf' else 'col-12 col-md-5'} ms-5 d-inline-block float-end">
+                            <div id="right-elements" t-if="display_helpdesk_prices" t-attf-class="#{'col-5 mt-5' if report_type == 'pdf' else 'col-12 col-md-5'} ms-5 d-inline-block float-end">
                                 <div id="total" class="clearfix row">
                                     <div class="ms-auto">
                                         <table class="o_total_table table table-borderless avoid-page-break-inside">
