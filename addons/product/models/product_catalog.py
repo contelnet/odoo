@@ -398,7 +398,7 @@ class Product(models.Model):
         comodel_name="stock.location",
         string="Ubicacion",
         domain="[]",
-        default=lambda self: self._default_stock_location_id(),
+        default=False,
         check_company=False,
     )
     purchase_tax_amount = fields.Monetary(
@@ -858,6 +858,17 @@ class Product(models.Model):
         if "stock_initial_qty" in vals:
             self._inverse_stock_initial_qty()
 
+    @api.model
+    def _prepare_catalog_logistics_vals(self, vals):
+        vals = dict(vals or {})
+        if "stock_location_id" not in vals:
+            vals["stock_location_id"] = False
+        if "helpdesk_location_id" in self._fields and "helpdesk_location_id" not in vals:
+            vals["helpdesk_location_id"] = False
+        if "route_ids" in self._fields and "route_ids" not in vals:
+            vals["route_ids"] = [(5, 0, 0)]
+        return vals
+
     def action_open_inventory_quants(self):
         self.ensure_one()
         if not self._is_model_available("stock.quant"):
@@ -1149,21 +1160,16 @@ class Product(models.Model):
         install_mode = bool(self.env.context.get("install_mode"))
         has_account_tax = self._is_model_available("account.tax")
         stock_sync_map = []
-        for vals in vals_list:
+        prepared_vals_list = []
+        for original_vals in vals_list:
+            vals = self._prepare_catalog_logistics_vals(original_vals)
             stock_sync_map.append(
                 {
                     "stock_initial_qty": vals.get("stock_initial_qty") if "stock_initial_qty" in vals else None,
                 }
             )
-            if (
-                vals.get("stock_location_id")
-                and not vals.get("company_id")
-                and self._is_model_available("stock.location")
-            ):
-                location = self.env["stock.location"].browse(vals["stock_location_id"])
-                vals["company_id"] = location.company_id.id or self.env.company.id
-
             if install_mode:
+                prepared_vals_list.append(vals)
                 continue
 
             for many2many_field in ("supplier_taxes_id", "taxes_id"):
@@ -1241,8 +1247,9 @@ class Product(models.Model):
                 purchase_tax = self._default_purchase_taxes()
                 if purchase_tax:
                     vals["supplier_taxes_id"] = [(6, 0, purchase_tax.ids)]
+            prepared_vals_list.append(vals)
 
-        products = super().create(vals_list)
+        products = super().create(prepared_vals_list)
         products._sync_pending_pieces()
         products._apply_piece_total_price()
         products._sync_pending_serial_numbers()
@@ -1293,11 +1300,6 @@ class Product(models.Model):
 
         if "has_imei" in vals and not vals.get("has_imei"):
             vals["imei_number"] = False
-        if vals.get("stock_location_id") and self._is_model_available("stock.location"):
-            location = self.env["stock.location"].browse(vals["stock_location_id"])
-            location_company_id = location.company_id.id if location else False
-            if not vals.get("company_id"):
-                vals["company_id"] = location_company_id or self.env.company.id
         result = super().write(vals)
         self._apply_stock_sync_from_values(vals)
         if "piece_input" in vals or "piece_product_id" in vals or "product_mode" in vals:
