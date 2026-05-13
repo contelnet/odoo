@@ -1,7 +1,7 @@
 {
     "name": "Outlook Helpdesk Button",
     "version": "18.0.1.0.0",
-    "depends": ["odoo_outlook"],
+    "depends": ["odoo_outlook", "helpdesk_mgmt"],
     "assets": {
         "odoo_outlook.assets": [
             "odoo_outlook_helpdesk_button/static/src/js/helpdesk_button.js",

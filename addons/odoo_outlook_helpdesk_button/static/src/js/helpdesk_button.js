@@ -1,9 +1,6 @@
 /** @odoo-module **/
 
 import { patch } from "@web/core/utils/patch";
-import { Component } from "@odoo/owl";
-// Ajusta el import si tu versión lo requiere
-default
 import { OutlookPanel } from "@odoo_outlook/components/outlook_panel/outlook_panel";
 
 patch(OutlookPanel.prototype, {
