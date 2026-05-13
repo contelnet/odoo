@@ -177,14 +177,14 @@
                                     <tr t-att-class="'fw-bold o_line_section' if line.display_type == 'line_section' else 'fst-italic o_line_note' if line.display_type == 'line_note' else ''">
                                         <t t-if="line.display_type == 'product'" name="account_invoice_line_accountable">
                                             <td name="account_invoice_line_part_number" t-if="show_helpdesk_product_columns">
-                                                <span t-field="line.helpdesk_part_number"/>
+                                                <span t-out="getattr(line, 'helpdesk_part_number', '')"/>
                                             </td>
                                             <td name="account_invoice_line_product" t-if="show_helpdesk_product_columns">
                                                 <span t-field="line.product_id"/>
                                             </td>
                                             <td name="account_invoice_line_name">
                                                 <!-- Estilo especial para línea CANON -->
-                                                <span t-if="line.is_canon_line" style="color:#007bff;font-weight:bold;">[CANON] </span>
+                                                <span t-if="getattr(line, 'is_canon_line', False)" style="color:#007bff;font-weight:bold;">[CANON] </span>
                                                 <!-- Estilo especial para línea MANO DE OBRA (por nombre de producto) -->
                                                 <span t-if="line.product_id and 'mano de obra' in (line.product_id.display_name or '').lower()" style="color:#28a745;font-weight:bold;">[MANO DE OBRA] </span>
                                                 <span t-if="line.name" t-field="line.name" t-options="{'widget': 'text'}"/>
