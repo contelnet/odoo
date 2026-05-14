@@ -9,7 +9,6 @@ from dateutil.relativedelta import relativedelta
 
 
 class ProductTemplate(models.Model):
-    _name = 'product.template'
     _inherit = 'product.template'
 
     purchased_product_qty = fields.Float(compute='_compute_purchased_product_qty', string='Purchased', digits='Product Unit of Measure')

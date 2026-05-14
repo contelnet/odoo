@@ -34,6 +34,7 @@
                     <field name="company_id" invisible="1" />
                     <field name="currency_id" invisible="1" />
                     <field name="cost_currency_id" invisible="1" />
+                    <field name="uom_name" invisible="1" />
                     <field name="ticket_active" invisible="1" />
                     <field name="sale_ok" invisible="1" />
                     <field name="purchase_ok" invisible="1" />
@@ -198,6 +199,7 @@
                                 options="{'currency_field': 'currency_id', 'field_digits': True}"
                             />
 
+                        </group>
                         </group>
                     </group>
 
