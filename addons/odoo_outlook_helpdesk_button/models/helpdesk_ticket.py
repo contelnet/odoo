@@ -1,3 +1,5 @@
+import re
+
 from odoo import _, api, models, tools
 from odoo.tools import html2plaintext, plaintext2html
 
@@ -29,7 +31,7 @@ class HelpdeskTicket(models.Model):
         team = self.env.user.helpdesk_team_ids.sorted(lambda team_rec: (team_rec.sequence, team_rec.id))[:1]
         channel = self.env.ref("helpdesk_mgmt.helpdesk_ticket_channel_email", raise_if_not_found=False)
 
-        subject = html2plaintext(email_subject or "").strip() or _("Caso creado desde Outlook")
+        subject = re.sub(r"[*_`]+", "", html2plaintext(email_subject or "")).strip() or _("Caso creado desde Outlook")
         body = (email_body or "").strip()
         if body and "<" not in body:
             body = plaintext2html(body)
