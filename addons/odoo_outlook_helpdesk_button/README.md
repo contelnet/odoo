@@ -9,6 +9,11 @@ Ahora crea el `helpdesk.ticket` directamente en backend a partir del correo actu
 3. Instala el módulo.
 4. Descarga el complemento desde `Outlook y Odoo` y configúralo con tu servidor y base de datos.
 
+## Recomendación para producción
+- Usa una URL accesible desde el equipo de Outlook; evita `localhost` salvo que Outlook y Odoo estén en la misma máquina.
+- El flujo soportado es: abrir un correo en Outlook → abrir el panel de Odoo → pulsar `Crear ticket`.
+- No bases la operación principal en la sincronización antigua de contactos/calendario del add-in legacy.
+
 ## Notas técnicas
 - Parchea el componente OWL `OutlookPanel` de `odoo_outlook`.
 - Inyecta el botón en la zona de acciones del panel.

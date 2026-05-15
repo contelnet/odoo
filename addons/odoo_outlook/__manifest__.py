@@ -1,7 +1,7 @@
 {
-    "name": "Odoo Outlook Add-In",
-    "summary": "An Odoo connector add-in for Microsoft Outlook.",
-    "description": "El add-in permite descargar el instalador y marca mensajes creados desde Outlook.",
+    "name": "Outlook Helpdesk Add-In",
+    "summary": "Descarga y prepara el complemento de Outlook para crear tickets en Odoo.",
+    "description": "Pantalla de preparación del complemento de Outlook para un uso profesional con tickets de helpdesk en Odoo.",
     "author": "Atteli - Juliusz Sosinowicz",
     "website": "http://atteli.com",
     "category": "Productivity",

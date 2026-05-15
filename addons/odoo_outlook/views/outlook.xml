@@ -7,31 +7,50 @@
             <field name="arch" type="xml">
                 <form class="oe_form_configuration">
                     <sheet>
-                        <h1>
-                            Outlook y Odoo
-                        </h1>
-                        <h4>
-							Descarga el complemento de Outlook e instálalo con Outlook cerrado.<br/><br/>
-							Después abre Outlook, conecta el complemento con esta base de datos y utiliza tus credenciales habituales de Odoo.<br/><br/>
-							Configuración de conexión:<br/>
-                            <label for="server" string="Servidor: " class="oe_inline"/> <field name="server" class="oe_inline oe_form_label"/><br/>
-                            <label for="database" string="Base de datos: " class="oe_inline"/> <field name="database" class="oe_inline oe_form_label"/><br/>
-							Si también está instalado el módulo de helpdesk para Outlook, desde el panel del correo podrás crear casos/tickets directamente a partir del email abierto.<br/><br/>
-							Una vez configurado, ya podrás descargar el add-in, abrir Outlook y empezar a crear tickets desde los correos.
-                        </h4>
-                        <button name="download_outlook" string="Descargar complemento de Outlook" type="object"/>
+                        <div class="mb-4">
+                            <h1>Outlook Helpdesk</h1>
+                            <div class="text-muted" style="font-size: 14px;">
+                                Configuración recomendada para producción: usar Outlook para abrir el correo y crear tickets en Odoo desde el panel del complemento.
+                            </div>
+                        </div>
+
+                        <group col="1">
+                            <group string="Datos que debes introducir en el complemento">
+                                <field name="server" readonly="1"/>
+                                <field name="database" readonly="1"/>
+                            </group>
+                            <group string="Diagnóstico recomendado antes de instalar en producción">
+                                <field name="setup_status_html" widget="html" nolabel="1" readonly="1"/>
+                            </group>
+                        </group>
+
+                        <separator string="Pasos recomendados"/>
+                        <div class="text-muted" style="font-size: 14px; line-height: 1.6;">
+                            <ol style="padding-left: 18px; margin-bottom: 0;">
+                                <li>Comprueba que la URL del servidor es accesible desde el equipo Windows donde está Outlook.</li>
+                                <li>Descarga e instala el complemento con Outlook cerrado.</li>
+                                <li>Abre Outlook, configura servidor, base de datos, usuario y contraseña.</li>
+                                <li>Abre un correo y usa el botón <strong>Crear ticket</strong> desde el panel de Odoo.</li>
+                            </ol>
+                        </div>
+
+                        <footer>
+                            <button name="action_test_outlook_setup" string="Probar configuración" type="object" class="btn-secondary"/>
+                            <button name="action_open_health_check" string="Abrir chequeo técnico" type="object" class="btn-secondary"/>
+                            <button name="download_outlook" string="Descargar complemento de Outlook" type="object" class="btn-primary"/>
+                        </footer>
                     </sheet>
                 </form>
             </field>
         </record>
 
         <record model="ir.actions.act_window" id="outlook_sync_action">
-            <field name="name">Synchronize with Outlook</field>
+            <field name="name">Outlook Helpdesk</field>
             <field name="res_model">odoo_outlook.outlook_sync</field>
             <field name="view_mode">form</field>
         </record>
 
 
-        <menuitem id="sync_top_menu" name="Synchronize" sequence="1000" action="outlook_sync_action"/>
+        <menuitem id="sync_top_menu" name="Outlook Helpdesk" sequence="1000" action="outlook_sync_action"/>
     </data>
 </odoo>
