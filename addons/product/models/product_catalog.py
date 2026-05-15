@@ -1043,6 +1043,38 @@ class Product(models.Model):
 
         return list(dict.fromkeys(valid_ids)), explicit_clear
 
+    @api.model
+    def _normalize_many2one_input_value(self, raw_value):
+        """Normaliza valores habituales del cliente web para campos many2one.
+
+        Acepta enteros, recordsets de un registro o pares `[id, display_name]`.
+        Si no reconoce el formato, devuelve el valor original para que el ORM lo procese.
+        """
+        if raw_value in (False, None):
+            return False
+
+        if isinstance(raw_value, int):
+            return raw_value
+
+        if isinstance(raw_value, str) and raw_value.isdigit():
+            return int(raw_value)
+
+        if hasattr(raw_value, "id"):
+            return raw_value.id or False
+
+        if isinstance(raw_value, (list, tuple)):
+            if not raw_value:
+                return False
+            first = raw_value[0]
+            if hasattr(first, "id"):
+                return first.id or False
+            if isinstance(first, str) and first.isdigit():
+                return int(first)
+            if isinstance(first, int) and first > 0:
+                return first
+
+        return raw_value
+
     @api.constrains("supplier_taxes_id", "taxes_id")
     def _check_catalog_taxes_filter(self):
         for product in self:
@@ -1173,70 +1205,13 @@ class Product(models.Model):
                 continue
 
             for many2many_field in ("supplier_taxes_id", "taxes_id"):
-                if many2many_field not in vals:
-                    continue
-
-                # Si el modelo de impuestos no está disponible, limpiar para evitar _unknown.
-                if not has_account_tax:
+                if many2many_field in vals and not has_account_tax:
                     vals[many2many_field] = False
-                    continue
 
-                raw_value = vals[many2many_field]
-                if not raw_value:
-                    vals[many2many_field] = False
-                    continue
-
-                valid_ids = []
-
-                try:
-                    if hasattr(raw_value, "ids"):
-                        valid_ids.extend(
-                            [rid for rid in raw_value.ids if isinstance(rid, int) and rid > 0]
-                        )
-                    else:
-                        commands = raw_value if isinstance(raw_value, (list, tuple)) else [raw_value]
-                        for cmd in commands:
-                            if hasattr(cmd, "id"):
-                                if isinstance(cmd.id, int) and cmd.id > 0:
-                                    valid_ids.append(cmd.id)
-                                continue
-
-                            if isinstance(cmd, int):
-                                if cmd > 0:
-                                    valid_ids.append(cmd)
-                                continue
-
-                            if not isinstance(cmd, (list, tuple)) or not cmd:
-                                continue
-
-                            command_type = cmd[0]
-                            if command_type in (1, 2, 3, 4):
-                                if len(cmd) >= 2:
-                                    record_id = cmd[1]
-                                    if hasattr(record_id, "id"):
-                                        record_id = record_id.id
-                                    if isinstance(record_id, str) and record_id.isdigit():
-                                        record_id = int(record_id)
-                                    if isinstance(record_id, int) and record_id > 0:
-                                        valid_ids.append(record_id)
-                            elif command_type == 6:
-                                if len(cmd) >= 3 and isinstance(cmd[2], (list, tuple)):
-                                    for record_id in cmd[2]:
-                                        if hasattr(record_id, "id"):
-                                            record_id = record_id.id
-                                        if isinstance(record_id, str) and record_id.isdigit():
-                                            record_id = int(record_id)
-                                        if isinstance(record_id, int) and record_id > 0:
-                                            valid_ids.append(record_id)
-                except Exception:
-                    # No tocar el valor original si no podemos normalizarlo.
-                    continue
-
-                clean_ids = list(dict.fromkeys(valid_ids))
-                if clean_ids:
-                    vals[many2many_field] = [(6, 0, clean_ids)]
-                # Si no pudimos extraer IDs válidos, mantener el valor original
-                # para que el ORM procese correctamente comandos nativos.
+            if "supplier_partner_id" in vals:
+                vals["supplier_partner_id"] = self._normalize_many2one_input_value(
+                    vals.get("supplier_partner_id")
+                )
 
 
             if "taxes_id" not in vals:
@@ -1259,44 +1234,24 @@ class Product(models.Model):
         return products
 
     def write(self, vals):
-        # Solo tocar impuestos si el usuario los envía explícitamente
-        if vals and self._is_model_available("account.tax"):
+        if vals and not self._is_model_available("account.tax"):
+            for many2many_field in ("supplier_taxes_id", "taxes_id"):
+                if many2many_field in vals:
+                    vals[many2many_field] = False
+        elif vals:
             for many2many_field in ("supplier_taxes_id", "taxes_id"):
                 if many2many_field in vals:
                     raw_value = vals[many2many_field]
-                    # Si es explícitamente False/None, permitir limpieza
-                    if raw_value is False or raw_value is None:
+                    if raw_value in (False, None):
                         vals[many2many_field] = False
-                        continue
-                    # Si es lista/tuple vacía, es limpieza explícita
-                    if isinstance(raw_value, (list, tuple)) and not raw_value:
-                        vals[many2many_field] = False
-                        continue
-                    try:
-                        clean_ids, explicit_clear = self._extract_tax_ids_from_m2m_value(raw_value)
-                    except Exception:
-                        clean_ids, explicit_clear = [], False
-                    if clean_ids:
-                        vals[many2many_field] = [(6, 0, clean_ids)]
-                    elif explicit_clear:
-                        vals[many2many_field] = False
-                    else:
-                        # Si no hay IDs válidos ni vaciado explícito, no tocar impuestos existentes.
+                    elif isinstance(raw_value, (list, tuple)) and not raw_value:
+                        # Lista vacía suele ser ruido del cliente; mejor no borrar el valor existente.
                         vals.pop(many2many_field, None)
-        # Solo tocar proveedor si el usuario lo envía explícitamente
+
         if "supplier_partner_id" in vals:
-            raw_value = vals["supplier_partner_id"]
-            if raw_value and not isinstance(raw_value, (int, list, tuple)):
-                if hasattr(raw_value, "id"):
-                    vals["supplier_partner_id"] = raw_value.id
-                elif isinstance(raw_value, (list, tuple)) and raw_value:
-                    if isinstance(raw_value[0], int) and raw_value[0] in (4, 1, 2, 3):
-                        if len(raw_value) > 1:
-                            vals["supplier_partner_id"] = raw_value[1]
-                        else:
-                            vals.pop("supplier_partner_id", None)
-                    elif isinstance(raw_value[0], int) and raw_value[0] > 0:
-                        vals["supplier_partner_id"] = raw_value[0]
+            vals["supplier_partner_id"] = self._normalize_many2one_input_value(
+                vals.get("supplier_partner_id")
+            )
 
         if "has_imei" in vals and not vals.get("has_imei"):
             vals["imei_number"] = False
