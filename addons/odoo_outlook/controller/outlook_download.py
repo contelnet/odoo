@@ -7,6 +7,8 @@ class OutlookDownload(http.Controller):
     def download_outlook_add_in(self, **kw):
         dir_path = os.path.dirname(os.path.realpath(__file__))
         installer_path = os.path.join(dir_path, '..', 'bin', 'OutlookAddInInstaller.exe')
+        if not os.path.isfile(installer_path):
+            return request.not_found()
         with open(installer_path, 'rb') as installer:
             return request.make_response(
                 installer.read(),
