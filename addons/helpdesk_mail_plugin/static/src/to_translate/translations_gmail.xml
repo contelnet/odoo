@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--Terms to translate for the gmail plugin -->
+<resources>
+    <string>Ticket</string>
+    <string>Could not create the ticket</string>
+    <string>Create a Ticket in a Team</string>
+    <string>Email already logged on the ticket</string>
+    <string>Tickets (%s)</string>
+    <string>Log the email on the ticket</string>
+    <string>Save the contact to create new tickets.</string>
+    <string>No tickets found for this contact.</string>
+    <string>Search Teams...</string>
+    <string>The Contact needs to exist to create Ticket.</string>
+    <string>No Team Found</string>
+</resources>

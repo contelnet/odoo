@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--Terms to translate for the outlook plugin -->
+<ressources>
+    <string>Ticket</string>
+    <string>Save Contact to create new Tickets.</string>
+    <string>No tickets found for this contact.</string>
+    <string>Tickets (%(count)s)</string>
+    <string>Pick a Team to create a Ticket</string>
+    <string>Create %(name)s</string>
+    <string>Search Teams...</string>
+    <string>Log Email Into Ticket</string>
+    <string>The Contact needs to exist to create Ticket.</string>
+    <string>No Team Found</string>
+</ressources>
