@@ -999,7 +999,14 @@ class Product(models.Model):
             valid_ids.extend([rid for rid in raw_value.ids if isinstance(rid, int) and rid > 0])
             return list(dict.fromkeys(valid_ids)), False
 
-        commands = raw_value if isinstance(raw_value, (list, tuple)) else [raw_value]
+        if (
+            isinstance(raw_value, tuple)
+            and raw_value
+            and isinstance(raw_value[0], int)
+        ):
+            commands = [raw_value]
+        else:
+            commands = raw_value if isinstance(raw_value, (list, tuple)) else [raw_value]
         for cmd in commands:
             if hasattr(cmd, "id"):
                 if isinstance(cmd.id, int) and cmd.id > 0:
