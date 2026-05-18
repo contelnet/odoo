@@ -49,16 +49,6 @@
                         options="{'convert_to_webp': True, 'preview_image': 'image_128'}"
                     />
 
-                    <div class="alert alert-info hmgt-product-hero" role="alert">
-                        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2">
-                            <div>
-                                <strong>Catálogo optimizado para producción.</strong>
-                                Diseño más visual para que cualquier usuario ubique rápido identificación, stock, piezas y precios.
-                            </div>
-                            <div class="text-muted small">Más claro · menos clics mentales</div>
-                        </div>
-                    </div>
-
                     <div class="oe_title">
                         <label for="name" string="Nombre" />
                         <h1>
@@ -96,8 +86,7 @@
                                     <field name="stock_real_qty" string="Stock Actual" class="hmgt-stock-field-primary" readonly="1" help="Stock total disponible del producto."/>
                                     <field name="service_sales_count" string="Contador ventas" class="hmgt-stock-field-secondary" readonly="1" invisible="product_business_type not in ('service','software')" help="Total acumulado vendido para servicios y software confirmados."/>
                                 </div>
-                                <p class="text-muted mb-0 hmgt-stock-help-text" invisible="stock_initial_locked">Define el stock inicial una sola vez para cargar artículos ya existentes. Después se mostrará sólo en Stock Actual.</p>
-                                <p class="text-muted mb-0 hmgt-stock-help-text" invisible="not stock_initial_locked">El stock inicial ya está aplicado y sumado a Stock Actual.</p>
+                                <p class="text-muted mb-0 hmgt-stock-help-text" invisible="stock_initial_locked">El stock inicial se integra automáticamente en el stock actual al guardar.</p>
                             </div>
                         </group>
                     </group>
@@ -222,12 +211,12 @@
 
                     <notebook>
                         <page string="Ventas">
-                            <group string="Historial de ventas" class="hmgt-history-panel">
+                            <group string="Ventas" class="hmgt-history-panel">
                                 <field name="sale_history_html" widget="html" nolabel="1" />
                             </group>
                         </page>
                         <page string="Compras" groups="base.group_user">
-                            <group string="Historial de compras" class="hmgt-history-panel">
+                            <group string="Compras" class="hmgt-history-panel">
                                 <field name="purchase_history_html" widget="html" nolabel="1" />
                             </group>
                         </page>
@@ -257,12 +246,12 @@
             <xpath expr="//notebook" position="replace">
                 <notebook>
                     <page string="Ventas">
-                        <group string="Historial de ventas" class="hmgt-history-panel">
+                        <group string="Ventas" class="hmgt-history-panel">
                             <field name="sale_history_html" widget="html" nolabel="1" />
                         </group>
                     </page>
                     <page string="Compras" groups="base.group_user">
-                        <group string="Historial de compras" class="hmgt-history-panel">
+                        <group string="Compras" class="hmgt-history-panel">
                             <field name="purchase_history_html" widget="html" nolabel="1" />
                         </group>
                     </page>
@@ -292,7 +281,7 @@
                 <field name="product_mode" optional="show" />
                 <field name="supplier_partner_id" optional="hide" />
                 <field name="supplier_reference" optional="hide" />
-                <field name="stock_real_qty" string="Stock actual" optional="show" />
+                <field name="stock_real_qty" string="Stock total" optional="show" />
                 <field
                     name="standard_price"
                     string="Precio de compra"

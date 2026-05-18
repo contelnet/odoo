@@ -9,9 +9,7 @@
                     <sheet>
                         <div class="mb-4">
                             <h1>Outlook Helpdesk</h1>
-                            <div class="text-muted" style="font-size: 14px;">
-                                Configuración recomendada para producción del complemento de Outlook conectado con Odoo.
-                            </div>
+                            <div class="text-muted" style="font-size: 14px;">Configuración del complemento.</div>
                         </div>
 
                         <group col="1">
@@ -23,21 +21,6 @@
                                 <field name="setup_status_html" widget="html" nolabel="1" readonly="1"/>
                             </group>
                         </group>
-
-                        <div class="alert alert-info" role="alert" style="border-radius: 12px;">
-                            <strong>Consejo de producción:</strong>
-                            valida primero acceso al servidor y base de datos. Después instala el complemento y prueba la conexión con Outlook cerrado y vuelto a abrir.
-                        </div>
-
-                        <separator string="Pasos recomendados"/>
-                        <div class="text-muted" style="font-size: 14px; line-height: 1.6;">
-                            <ol style="padding-left: 18px; margin-bottom: 0;">
-                                <li>Comprueba que la URL del servidor es accesible desde el equipo Windows donde está Outlook.</li>
-                                <li>Descarga e instala el complemento con Outlook cerrado.</li>
-                                <li>Abre Outlook, configura servidor, base de datos, usuario y contraseña.</li>
-                                <li>Abre un correo y prueba las acciones del complemento con una cuenta real.</li>
-                            </ol>
-                        </div>
 
                         <footer>
                             <button name="action_test_outlook_setup" string="Comprobar acceso" type="object" class="btn-secondary"/>

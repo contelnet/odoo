@@ -1205,7 +1205,26 @@ class Product(models.Model):
                 continue
 
             for many2many_field in ("supplier_taxes_id", "taxes_id"):
-                if many2many_field in vals and not has_account_tax:
+                if many2many_field not in vals:
+                    continue
+
+                if not has_account_tax:
+                    vals[many2many_field] = False
+                    continue
+
+                raw_value = vals[many2many_field]
+                if raw_value in (False, None):
+                    vals[many2many_field] = False
+                    continue
+
+                try:
+                    clean_ids, explicit_clear = self._extract_tax_ids_from_m2m_value(raw_value)
+                except Exception:
+                    clean_ids, explicit_clear = [], False
+
+                if clean_ids:
+                    vals[many2many_field] = [(6, 0, clean_ids)]
+                elif explicit_clear:
                     vals[many2many_field] = False
 
             if "supplier_partner_id" in vals:
@@ -1244,8 +1263,22 @@ class Product(models.Model):
                     raw_value = vals[many2many_field]
                     if raw_value in (False, None):
                         vals[many2many_field] = False
-                    elif isinstance(raw_value, (list, tuple)) and not raw_value:
+                        continue
+                    if isinstance(raw_value, (list, tuple)) and not raw_value:
                         # Lista vacía suele ser ruido del cliente; mejor no borrar el valor existente.
+                        vals.pop(many2many_field, None)
+                        continue
+
+                    try:
+                        clean_ids, explicit_clear = self._extract_tax_ids_from_m2m_value(raw_value)
+                    except Exception:
+                        clean_ids, explicit_clear = [], False
+
+                    if clean_ids:
+                        vals[many2many_field] = [(6, 0, clean_ids)]
+                    elif explicit_clear:
+                        vals[many2many_field] = False
+                    else:
                         vals.pop(many2many_field, None)
 
         if "supplier_partner_id" in vals:
