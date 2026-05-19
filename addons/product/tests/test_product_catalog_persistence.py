@@ -61,3 +61,39 @@ class TestProductCatalogPersistence(TransactionCase):
         if self.sale_tax and self.purchase_tax and getattr(self.sale_tax, '_name', '') == 'account.tax':
             self.assertEqual(product.taxes_id, self.sale_tax)
             self.assertEqual(product.supplier_taxes_id, self.purchase_tax)
+
+    def test_write_keeps_vendor_and_taxes_with_string_and_dict_payloads(self):
+        product = self.env['product.template'].create({
+            'name': 'Producto persistencia payload web',
+        })
+
+        values = {
+            'supplier_partner_id': {'resId': self.vendor.id, 'display_name': self.vendor.display_name},
+        }
+        if self.sale_tax and self.purchase_tax and getattr(self.sale_tax, '_name', '') == 'account.tax':
+            values.update({
+                'taxes_id': [{'operation': 'SET', 'ids': [str(self.sale_tax.id)]}],
+                'supplier_taxes_id': [{'operation': 'SET', 'ids': [str(self.purchase_tax.id)]}],
+            })
+
+        product.write(values)
+
+        self.assertEqual(product.supplier_partner_id, self.vendor)
+        if self.sale_tax and self.purchase_tax and getattr(self.sale_tax, '_name', '') == 'account.tax':
+            self.assertEqual(product.taxes_id, self.sale_tax)
+            self.assertEqual(product.supplier_taxes_id, self.purchase_tax)
+
+    def test_write_creates_serial_numbers_and_keeps_tracking(self):
+        product = self.env['product.template'].create({
+            'name': 'Producto persistencia seriales',
+        })
+
+        product.write({
+            'has_serial_number': True,
+            'serial_number_input': 'SER-001\nSER-002',
+        })
+
+        if 'tracking' in product._fields:
+            self.assertEqual(product.tracking, 'serial')
+        self.assertTrue(product.has_serial_number)
+        self.assertEqual(product.serial_number_ids.mapped('name'), ['SER-001', 'SER-002'])

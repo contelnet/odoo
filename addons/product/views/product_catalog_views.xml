@@ -21,10 +21,9 @@
             <form string="Producto" class="product-catalog-form">
                 <header>
                     <button
-                        name="action_save_product_record"
-                        type="object"
                         string="Guardar"
-                        class="btn product-catalog-save-btn hmgt-product-catalog-save-btn"
+                        special="save"
+                        class="btn btn-primary product-catalog-save-btn hmgt-product-catalog-save-btn"
                         icon="fa-save"
                     />
 
@@ -80,6 +79,16 @@
                                 placeholder="Introduce el numero de serie"
                                 invisible="not has_serial_number"
                             />
+                            <field
+                                name="serial_number_count"
+                                string="Seriales guardados"
+                                readonly="1"
+                                invisible="not has_serial_number"
+                            />
+                            <div
+                                class="o_form_label text-muted"
+                                invisible="not has_serial_number"
+                            >Al guardar, el número de serie se añade al listado de la pestaña Seriales.</div>
                             <div class="hmgt-product-stock-panel">
                                 <div class="hmgt-product-stock-grid">
                                     <field name="stock_initial_qty" string="Stock Inicial" class="hmgt-stock-field-secondary" invisible="stock_initial_locked" help="Úsalo una sola vez para meter artículos que ya tienes en almacén sin comprarlos. Al guardar, se suma al stock actual y desaparece."/>
@@ -334,6 +343,16 @@
                                     placeholder="Introduce el numero de serie"
                                     invisible="not has_serial_number"
                                 />
+                                <field
+                                    name="serial_number_count"
+                                    string="Seriales guardados"
+                                    readonly="1"
+                                    invisible="not has_serial_number"
+                                />
+                                <div
+                                    class="o_form_label text-muted"
+                                    invisible="not has_serial_number"
+                                >Al guardar, el número de serie se añade al listado de la pestaña Seriales.</div>
                                 <div class="hmgt-product-stock-panel">
                                     <div class="hmgt-product-stock-grid">
                                         <field name="stock_initial_qty" string="Stock Inicial" class="hmgt-stock-field-secondary" invisible="stock_initial_locked" help="Úsalo una sola vez para meter artículos que ya tienes en almacén sin comprarlos. Al guardar, se suma al stock actual y desaparece."/>

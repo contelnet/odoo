@@ -999,6 +999,27 @@ class Product(models.Model):
             valid_ids.extend([rid for rid in raw_value.ids if isinstance(rid, int) and rid > 0])
             return list(dict.fromkeys(valid_ids)), False
 
+        if isinstance(raw_value, dict):
+            explicit_clear = str(
+                raw_value.get("operation")
+                or raw_value.get("op")
+                or ""
+            ).upper() in ("CLEAR", "DELETE_ALL")
+            ids_payload = raw_value.get("ids") or raw_value.get("resIds") or raw_value.get("res_ids")
+            if isinstance(ids_payload, (list, tuple)):
+                for record_id in ids_payload:
+                    normalized_id = self._normalize_relational_id(record_id)
+                    if normalized_id:
+                        valid_ids.append(normalized_id)
+            normalized_single_id = self._normalize_relational_id(
+                raw_value.get("id")
+                or raw_value.get("resId")
+                or raw_value.get("res_id")
+            )
+            if normalized_single_id:
+                valid_ids.append(normalized_single_id)
+            return list(dict.fromkeys(valid_ids)), explicit_clear
+
         if (
             isinstance(raw_value, tuple)
             and raw_value
@@ -1013,15 +1034,57 @@ class Product(models.Model):
                     valid_ids.append(cmd.id)
                 continue
 
+            if isinstance(cmd, str) and cmd.isdigit():
+                valid_ids.append(int(cmd))
+                continue
+
             if isinstance(cmd, int):
                 if cmd > 0:
                     valid_ids.append(cmd)
+                continue
+
+            if isinstance(cmd, dict):
+                operation = str(cmd.get("operation") or cmd.get("op") or "").upper()
+                if operation in ("CLEAR", "DELETE_ALL"):
+                    explicit_clear = True
+                ids_payload = cmd.get("ids") or cmd.get("resIds") or cmd.get("res_ids")
+                if isinstance(ids_payload, (list, tuple)):
+                    if len(ids_payload) == 0 and operation == "SET":
+                        explicit_clear = True
+                    for record_id in ids_payload:
+                        normalized_id = self._normalize_relational_id(record_id)
+                        if normalized_id:
+                            valid_ids.append(normalized_id)
+                normalized_single_id = self._normalize_relational_id(
+                    cmd.get("id") or cmd.get("resId") or cmd.get("res_id")
+                )
+                if normalized_single_id:
+                    valid_ids.append(normalized_single_id)
                 continue
 
             if not isinstance(cmd, (list, tuple)) or not cmd:
                 continue
 
             command_type = cmd[0]
+            if isinstance(command_type, str):
+                normalized_type = command_type.upper()
+                if normalized_type in ("CLEAR", "DELETE_ALL"):
+                    explicit_clear = True
+                    continue
+                if normalized_type == "SET" and len(cmd) >= 2 and isinstance(cmd[1], (list, tuple)):
+                    if len(cmd[1]) == 0:
+                        explicit_clear = True
+                    for record_id in cmd[1]:
+                        normalized_id = self._normalize_relational_id(record_id)
+                        if normalized_id:
+                            valid_ids.append(normalized_id)
+                    continue
+                if normalized_type in ("LINK", "UNLINK", "DELETE") and len(cmd) >= 2:
+                    normalized_id = self._normalize_relational_id(cmd[1])
+                    if normalized_id:
+                        valid_ids.append(normalized_id)
+                    continue
+
             if command_type == 5:
                 explicit_clear = True
                 continue
@@ -1051,6 +1114,28 @@ class Product(models.Model):
         return list(dict.fromkeys(valid_ids)), explicit_clear
 
     @api.model
+    def _normalize_relational_id(self, raw_value):
+        if raw_value in (False, None):
+            return False
+
+        if isinstance(raw_value, dict):
+            ids_payload = raw_value.get("ids") or raw_value.get("resIds") or raw_value.get("res_ids")
+            if isinstance(ids_payload, (list, tuple)) and ids_payload:
+                return self._normalize_relational_id(ids_payload[0])
+            raw_value = raw_value.get("id") or raw_value.get("resId") or raw_value.get("res_id")
+
+        if hasattr(raw_value, "id"):
+            raw_value = raw_value.id
+
+        if isinstance(raw_value, str) and raw_value.isdigit():
+            raw_value = int(raw_value)
+
+        if isinstance(raw_value, int) and raw_value > 0:
+            return raw_value
+
+        return False
+
+    @api.model
     def _normalize_many2one_input_value(self, raw_value):
         """Normaliza valores habituales del cliente web para campos many2one.
 
@@ -1065,6 +1150,10 @@ class Product(models.Model):
 
         if isinstance(raw_value, str) and raw_value.isdigit():
             return int(raw_value)
+
+        if isinstance(raw_value, dict):
+            normalized_id = self._normalize_relational_id(raw_value)
+            return normalized_id if normalized_id else raw_value
 
         if hasattr(raw_value, "id"):
             return raw_value.id or False
@@ -1084,7 +1173,11 @@ class Product(models.Model):
 
     @api.constrains("supplier_taxes_id", "taxes_id")
     def _check_catalog_taxes_filter(self):
+        if not self._is_model_available("account.tax"):
+            return
         for product in self:
+            if getattr(product.supplier_taxes_id, "_name", None) == "_unknown":
+                continue
             if (
                 product.supplier_taxes_id
                 and "type_tax_use" in product.supplier_taxes_id._fields
@@ -1093,6 +1186,8 @@ class Product(models.Model):
                 raise ValidationError(
                     _("Los impuestos de compra solo pueden tener tipo de uso 'purchase'.")
                 )
+            if getattr(product.taxes_id, "_name", None) == "_unknown":
+                continue
             if (
                 product.taxes_id
                 and "type_tax_use" in product.taxes_id._fields
@@ -1285,8 +1380,8 @@ class Product(models.Model):
                         vals[many2many_field] = [(6, 0, clean_ids)]
                     elif explicit_clear:
                         vals[many2many_field] = False
-                    else:
-                        vals.pop(many2many_field, None)
+                    # Si no reconocemos el formato, lo dejamos intacto para que el ORM
+                    # estándar procese el payload del cliente web en lugar de perder el dato.
 
         if "supplier_partner_id" in vals:
             vals["supplier_partner_id"] = self._normalize_many2one_input_value(
