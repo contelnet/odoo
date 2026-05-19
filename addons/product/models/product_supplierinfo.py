@@ -65,6 +65,12 @@ class SupplierInfo(models.Model):
         string="Discount (%)",
         digits='Discount',
         readonly=False)
+    is_catalog_quick_supplier = fields.Boolean(
+        string='Proveedor rápido catálogo',
+        default=False,
+        copy=False,
+        help='Identifica la línea de proveedor sincronizada automáticamente desde el formulario rápido del catálogo.',
+    )
 
     @api.depends('discount', 'price')
     def _compute_price_discounted(self):

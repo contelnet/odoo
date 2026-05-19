@@ -133,10 +133,20 @@ class Product(models.Model):
 
     @api.model
     def _is_model_available(self, model_name):
+        registry = getattr(self.env, "registry", None)
+        try:
+            if registry and registry.get(model_name):
+                return True
+        except Exception:
+            pass
         try:
             model = self.env.get(model_name)
         except Exception:
-            return False
+            try:
+                self.env[model_name]
+                return True
+            except Exception:
+                return False
         return bool(model and getattr(model, "_name", None) == model_name)
 
     def init(self):
@@ -886,6 +896,65 @@ class Product(models.Model):
             },
         }
 
+    def _prepare_quick_supplierinfo_vals(self):
+        self.ensure_one()
+        if not self.supplier_partner_id:
+            return False
+
+        currency = self.cost_currency_id or self.currency_id or self.env.company.currency_id
+        return {
+            "partner_id": self.supplier_partner_id.id,
+            "product_tmpl_id": self.id,
+            "product_id": False,
+            "company_id": self.company_id.id or self.env.company.id,
+            "currency_id": currency.id,
+            "price": float(self.standard_price or 0.0),
+            "product_code": self.supplier_reference or False,
+            "product_name": False,
+            "min_qty": 0.0,
+            "delay": 1,
+            "sequence": 1,
+            "is_catalog_quick_supplier": True,
+        }
+
+    def _sync_catalog_supplierinfo(self):
+        if not self._is_model_available("product.supplierinfo"):
+            return
+
+        supplierinfo_model = self.env["product.supplierinfo"].sudo()
+        for product in self:
+            quick_lines = supplierinfo_model.search([
+                ("product_tmpl_id", "=", product.id),
+                ("product_id", "=", False),
+                ("is_catalog_quick_supplier", "=", True),
+            ])
+
+            if not product.supplier_partner_id:
+                if quick_lines:
+                    quick_lines.unlink()
+                continue
+
+            supplier_vals = product._prepare_quick_supplierinfo_vals()
+            target_line = quick_lines.filtered(
+                lambda line: line.partner_id == product.supplier_partner_id
+            )[:1]
+
+            if not target_line:
+                target_line = supplierinfo_model.search([
+                    ("product_tmpl_id", "=", product.id),
+                    ("product_id", "=", False),
+                    ("partner_id", "=", product.supplier_partner_id.id),
+                ], limit=1)
+
+            if target_line:
+                target_line.write(supplier_vals)
+            else:
+                target_line = supplierinfo_model.create(supplier_vals)
+
+            stale_lines = quick_lines.filtered(lambda line: line.id != target_line.id)
+            if stale_lines:
+                stale_lines.unlink()
+
 
     @api.depends("standard_price", "purchase_tax_amount", "canon_amount", "list_price", "sale_tax_amount")
     def _compute_totals_with_canon(self):
@@ -1065,6 +1134,12 @@ class Product(models.Model):
             if not isinstance(cmd, (list, tuple)) or not cmd:
                 continue
 
+            if len(cmd) in (1, 2):
+                normalized_pair_id = self._normalize_relational_id(cmd[0])
+                if normalized_pair_id:
+                    valid_ids.append(normalized_pair_id)
+                    continue
+
             command_type = cmd[0]
             if isinstance(command_type, str):
                 normalized_type = command_type.upper()
@@ -1162,6 +1237,9 @@ class Product(models.Model):
             if not raw_value:
                 return False
             first = raw_value[0]
+            normalized_first = self._normalize_relational_id(first)
+            if normalized_first:
+                return normalized_first
             if hasattr(first, "id"):
                 return first.id or False
             if isinstance(first, str) and first.isdigit():
@@ -1349,6 +1427,7 @@ class Product(models.Model):
         products._sync_pending_pieces()
         products._apply_piece_total_price()
         products._sync_pending_serial_numbers()
+        products._sync_catalog_supplierinfo()
         if not install_mode:
             for product, stock_sync_vals in zip(products, stock_sync_map):
                 product._apply_stock_sync_from_values(stock_sync_vals)
@@ -1398,6 +1477,8 @@ class Product(models.Model):
             self._apply_piece_total_price()
         if "serial_number_input" in vals or "has_serial_number" in vals:
             self._sync_pending_serial_numbers()
+        if any(field_name in vals for field_name in ("supplier_partner_id", "supplier_reference", "standard_price", "company_id")):
+            self._sync_catalog_supplierinfo()
         return result
 
     def _sync_pending_pieces(self):
