@@ -119,6 +119,7 @@ class Product(models.Model):
         'tax_id',
         string="Impuestos de venta",
         help="Impuestos por defecto al vender el producto",
+        domain=[('type_tax_use', '=', 'sale')],
         default=lambda self: self._default_sale_taxes(),
     )
     supplier_taxes_id = fields.Many2many(
@@ -128,6 +129,7 @@ class Product(models.Model):
         'tax_id',
         string="Impuestos de compra",
         help="Impuestos por defecto al comprar el producto",
+        domain=[('type_tax_use', '=', 'purchase')],
         default=lambda self: self._default_purchase_taxes(),
     )
 
@@ -1189,6 +1191,24 @@ class Product(models.Model):
         return list(dict.fromkeys(valid_ids)), explicit_clear
 
     @api.model
+    def _sanitize_tax_ids(self, tax_ids, tax_use):
+        """Filtra IDs de impuestos para evitar guardar tipos incorrectos o registros inexistentes."""
+        if not tax_ids or not self._is_model_available("account.tax"):
+            return []
+
+        taxes = self.env["account.tax"].browse(tax_ids).exists()
+        allowed_companies = self.env.companies
+        taxes = taxes.filtered(
+            lambda tax: tax.type_tax_use == tax_use
+            and (
+                not tax.company_id
+                or tax.company_id in allowed_companies
+                or tax.company_id == self.env.company
+            )
+        )
+        return taxes.ids
+
+    @api.model
     def _normalize_relational_id(self, raw_value):
         if raw_value in (False, None):
             return False
@@ -1403,8 +1423,16 @@ class Product(models.Model):
                     clean_ids, explicit_clear = [], False
 
                 if clean_ids:
+                    clean_ids = self._sanitize_tax_ids(
+                        clean_ids,
+                        "purchase" if many2many_field == "supplier_taxes_id" else "sale",
+                    )
+
+                if clean_ids:
                     vals[many2many_field] = [(6, 0, clean_ids)]
                 elif explicit_clear:
+                    vals[many2many_field] = False
+                else:
                     vals[many2many_field] = False
 
             if "supplier_partner_id" in vals:
@@ -1456,11 +1484,17 @@ class Product(models.Model):
                         clean_ids, explicit_clear = [], False
 
                     if clean_ids:
+                        clean_ids = self._sanitize_tax_ids(
+                            clean_ids,
+                            "purchase" if many2many_field == "supplier_taxes_id" else "sale",
+                        )
+
+                    if clean_ids:
                         vals[many2many_field] = [(6, 0, clean_ids)]
                     elif explicit_clear:
                         vals[many2many_field] = False
-                    # Si no reconocemos el formato, lo dejamos intacto para que el ORM
-                    # estándar procese el payload del cliente web en lugar de perder el dato.
+                    else:
+                        vals[many2many_field] = False
 
         if "supplier_partner_id" in vals:
             vals["supplier_partner_id"] = self._normalize_many2one_input_value(
