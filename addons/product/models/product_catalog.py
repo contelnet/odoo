@@ -1209,6 +1209,35 @@ class Product(models.Model):
         return taxes.ids
 
     @api.model
+    def _prepare_tax_m2m_write_value(self, raw_value, tax_use):
+        """Normaliza payloads M2M de impuestos para create/write.
+
+        Devuelve una tupla ``(should_write, value)``:
+        - should_write=True + value=[(6, 0, ids)] para set explícito
+        - should_write=True + value=False para borrado explícito
+        - should_write=False cuando el payload es ruido/ambigüo y debe conservarse el valor actual
+        """
+        if raw_value in (False, None):
+            return True, False
+
+        if isinstance(raw_value, (list, tuple)) and not raw_value:
+            return False, None
+
+        try:
+            clean_ids, explicit_clear = self._extract_tax_ids_from_m2m_value(raw_value)
+        except Exception:
+            clean_ids, explicit_clear = [], False
+
+        if clean_ids:
+            clean_ids = self._sanitize_tax_ids(clean_ids, tax_use)
+
+        if clean_ids:
+            return True, [(6, 0, clean_ids)]
+        if explicit_clear:
+            return True, False
+        return False, None
+
+    @api.model
     def _normalize_relational_id(self, raw_value):
         if raw_value in (False, None):
             return False
@@ -1413,27 +1442,14 @@ class Product(models.Model):
                     continue
 
                 raw_value = vals[many2many_field]
-                if raw_value in (False, None):
-                    vals[many2many_field] = False
-                    continue
-
-                try:
-                    clean_ids, explicit_clear = self._extract_tax_ids_from_m2m_value(raw_value)
-                except Exception:
-                    clean_ids, explicit_clear = [], False
-
-                if clean_ids:
-                    clean_ids = self._sanitize_tax_ids(
-                        clean_ids,
-                        "purchase" if many2many_field == "supplier_taxes_id" else "sale",
-                    )
-
-                if clean_ids:
-                    vals[many2many_field] = [(6, 0, clean_ids)]
-                elif explicit_clear:
-                    vals[many2many_field] = False
+                should_write, normalized_value = self._prepare_tax_m2m_write_value(
+                    raw_value,
+                    "purchase" if many2many_field == "supplier_taxes_id" else "sale",
+                )
+                if should_write:
+                    vals[many2many_field] = normalized_value
                 else:
-                    vals[many2many_field] = False
+                    vals.pop(many2many_field, None)
 
             if "supplier_partner_id" in vals:
                 vals["supplier_partner_id"] = self._normalize_many2one_input_value(
@@ -1470,31 +1486,15 @@ class Product(models.Model):
             for many2many_field in ("supplier_taxes_id", "taxes_id"):
                 if many2many_field in vals:
                     raw_value = vals[many2many_field]
-                    if raw_value in (False, None):
-                        vals[many2many_field] = False
-                        continue
-                    if isinstance(raw_value, (list, tuple)) and not raw_value:
-                        # Lista vacía suele ser ruido del cliente; mejor no borrar el valor existente.
-                        vals.pop(many2many_field, None)
-                        continue
-
-                    try:
-                        clean_ids, explicit_clear = self._extract_tax_ids_from_m2m_value(raw_value)
-                    except Exception:
-                        clean_ids, explicit_clear = [], False
-
-                    if clean_ids:
-                        clean_ids = self._sanitize_tax_ids(
-                            clean_ids,
-                            "purchase" if many2many_field == "supplier_taxes_id" else "sale",
-                        )
-
-                    if clean_ids:
-                        vals[many2many_field] = [(6, 0, clean_ids)]
-                    elif explicit_clear:
-                        vals[many2many_field] = False
+                    should_write, normalized_value = self._prepare_tax_m2m_write_value(
+                        raw_value,
+                        "purchase" if many2many_field == "supplier_taxes_id" else "sale",
+                    )
+                    if should_write:
+                        vals[many2many_field] = normalized_value
                     else:
-                        vals[many2many_field] = False
+                        # Payload ambiguo/ruido del cliente web: conservar el valor actual.
+                        vals.pop(many2many_field, None)
 
         if "supplier_partner_id" in vals:
             vals["supplier_partner_id"] = self._normalize_many2one_input_value(
