@@ -163,6 +163,21 @@ class Product(models.Model):
 
         self.env.cr.execute(
             """
+            ALTER TABLE product_template_piece
+                ADD COLUMN IF NOT EXISTS piece_product_id integer,
+                ADD COLUMN IF NOT EXISTS sale_price_unit numeric
+            """
+        )
+        self.env.cr.execute(
+            """
+            UPDATE product_template_piece
+               SET sale_price_unit = COALESCE(price_unit, 0)
+             WHERE sale_price_unit IS NULL
+            """
+        )
+
+        self.env.cr.execute(
+            """
             UPDATE product_template
                SET ticket_active = TRUE
              WHERE ticket_active IS NULL
@@ -274,8 +289,13 @@ class Product(models.Model):
         string="Piezas",
     )
     piece_total_price = fields.Monetary(
-        string="Total piezas",
+        string="Total compra piezas",
         currency_field="cost_currency_id",
+        compute="_compute_piece_total_price",
+    )
+    piece_sale_total_price = fields.Monetary(
+        string="Total venta piezas",
+        currency_field="currency_id",
         compute="_compute_piece_total_price",
     )
     serial_number_input = fields.Char(
@@ -503,12 +523,19 @@ class Product(models.Model):
         for product in self:
             product.serial_number_count = len(product.serial_number_ids)
 
-    @api.depends("piece_ids.price_unit")
+    @api.depends(
+        "piece_ids.price_unit",
+        "piece_ids.sale_price_unit",
+        "piece_ids.piece_product_id",
+        "piece_ids.piece_product_id.standard_price",
+        "piece_ids.piece_product_id.list_price",
+    )
     def _compute_piece_total_price(self):
         for product in self:
             product.piece_total_price = sum(product.piece_ids.mapped("price_unit"))
+            product.piece_sale_total_price = sum(product.piece_ids.mapped("sale_price_unit"))
 
-    @api.onchange("product_mode", "piece_ids", "piece_ids.price_unit")
+    @api.onchange("product_mode", "piece_ids", "piece_ids.price_unit", "piece_ids.sale_price_unit")
     def _onchange_piece_prices(self):
         self._apply_piece_total_price()
 
@@ -1413,14 +1440,23 @@ class Product(models.Model):
         for product in self:
             if product.product_mode != "pieces":
                 continue
-            piece_values = product._parse_piece_values(product.piece_input)
+            piece_vals_list = [
+                {"product_tmpl_id": product.id, "name": piece_value}
+                for piece_value in product._parse_piece_values(product.piece_input)
+            ]
             if product.piece_product_id and product.piece_product_id != product:
-                piece_values.append(product.piece_product_id.display_name or product.piece_product_id.name)
-            if not piece_values:
+                piece_vals_list.append(
+                    {
+                        "product_tmpl_id": product.id,
+                        "name": product.piece_product_id.display_name or product.piece_product_id.name,
+                        "piece_product_id": product.piece_product_id.id,
+                        "price_unit": product.piece_product_id.standard_price or 0.0,
+                        "sale_price_unit": product.piece_product_id.list_price or 0.0,
+                    }
+                )
+            if not piece_vals_list:
                 continue
-            created_pieces = piece_model.create(
-                [{"product_tmpl_id": product.id, "name": piece_value} for piece_value in piece_values]
-            )
+            created_pieces = piece_model.create(piece_vals_list)
             created_count += len(created_pieces)
             super(Product, product).write({"piece_input": False, "piece_product_id": False})
         return created_count
@@ -1429,10 +1465,60 @@ class Product(models.Model):
         for product in self:
             if product.product_mode != "pieces":
                 continue
-            piece_prices = product.piece_ids.mapped("price_unit")
-            if not piece_prices or not any(price not in (False, None, 0.0) for price in piece_prices):
+            purchase_prices = product.piece_ids.mapped("price_unit")
+            sale_prices = product.piece_ids.mapped("sale_price_unit")
+            if purchase_prices and any(price not in (False, None, 0.0) for price in purchase_prices):
+                product.standard_price = product.piece_total_price
+            if sale_prices and any(price not in (False, None, 0.0) for price in sale_prices):
+                product.list_price = product.piece_sale_total_price
+
+    def _get_piece_breakdown_components(self, quantity=1.0, visited=None):
+        self.ensure_one()
+        if self.product_mode != "pieces" or not self.piece_ids:
+            return []
+
+        visited = set(visited or ())
+        if self.id in visited:
+            raise ValidationError(
+                _(
+                    "Se ha detectado un bucle en la composición por piezas del producto '%s'."
+                )
+                % (self.display_name or self.name)
+            )
+
+        branch_visited = visited | {self.id}
+        components = []
+        for piece in self.piece_ids:
+            linked_product = piece.piece_product_id
+            component_qty = quantity or 0.0
+            if not component_qty:
                 continue
-            product.standard_price = product.piece_total_price
+
+            if linked_product and linked_product.product_mode == "pieces" and linked_product.piece_ids:
+                components.extend(
+                    linked_product._get_piece_breakdown_components(
+                        quantity=component_qty,
+                        visited=branch_visited,
+                    )
+                )
+                continue
+
+            component_name = (
+                linked_product.display_name
+                if linked_product
+                else piece.display_name or piece.name or self.display_name or self.name
+            )
+            components.append(
+                {
+                    "name": component_name,
+                    "quantity": component_qty,
+                    "product_tmpl": linked_product,
+                    "purchase_price_unit": piece.price_unit or 0.0,
+                    "sale_price_unit": piece.sale_price_unit or 0.0,
+                }
+            )
+
+        return components
 
     @api.constrains("product_mode", "stock_qty")
     def _check_product_mode_qty(self):

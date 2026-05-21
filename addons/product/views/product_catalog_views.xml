@@ -116,8 +116,10 @@
                             <field name="piece_ids" nolabel="1">
                                 <list string="Piezas del producto" editable="bottom">
                                     <field name="name" string="Pieza" required="1"/>
+                                    <field name="piece_product_id" string="Producto" optional="show" options="{'no_open': True, 'no_create': True}"/>
                                     <field name="serial_number" string="N. serie" optional="show"/>
-                                    <field name="price_unit" string="Precio"/>
+                                    <field name="price_unit" string="Compra"/>
+                                    <field name="sale_price_unit" string="Venta"/>
                                     <field name="create_date" string="Fecha de alta" readonly="1" optional="show"/>
                                 </list>
                             </field>
@@ -331,8 +333,10 @@
                                 <field name="piece_ids" nolabel="1">
                                     <list string="Piezas del producto" editable="bottom">
                                         <field name="name" string="Pieza" required="1"/>
+                                        <field name="piece_product_id" string="Producto" optional="show" options="{'no_open': True, 'no_create': True}"/>
                                         <field name="serial_number" string="N. serie" optional="show"/>
-                                        <field name="price_unit" string="Precio"/>
+                                        <field name="price_unit" string="Compra"/>
+                                        <field name="sale_price_unit" string="Venta"/>
                                         <field name="create_date" string="Fecha de alta" readonly="1" optional="show"/>
                                     </list>
                                 </field>
