@@ -136,36 +136,9 @@
                             />
 
                             <field
-                                name="supplier_taxes_id"
-                                string="Impuestos de compra"
-                                widget="many2many_tags"
-                                options="{'no_create': False}"
-                                context="{'default_type_tax_use': 'purchase'}"
-                                groups="base.group_user"
-                            />
-
-                            <field
-                                name="purchase_tax_amount"
-                                string="Impuestos compra"
-                                readonly="1"
-                                widget="monetary"
-                                options="{'currency_field': 'cost_currency_id', 'field_digits': True}"
-                                groups="base.group_user"
-                            />
-
-                            <field
                                 name="canon_amount"
                                 widget="monetary"
                                 options="{'currency_field': 'currency_id', 'field_digits': True}"
-                            />
-
-                            <field
-                                name="purchase_total_with_canon"
-                                string="Costo total"
-                                readonly="1"
-                                widget="monetary"
-                                options="{'currency_field': 'cost_currency_id', 'field_digits': True}"
-                                groups="base.group_user"
                             />
 
                             <field
@@ -192,29 +165,6 @@
                                 options="{'currency_field': 'currency_id', 'field_digits': True}"
                             />
 
-                            <field
-                                name="taxes_id"
-                                string="Impuestos de venta"
-                                widget="many2many_tags"
-                                options="{'no_create': False}"
-                                context="{'default_type_tax_use': 'sale'}"
-                            />
-
-                            <field
-                                name="sale_tax_amount"
-                                string="Impuestos venta"
-                                readonly="1"
-                                widget="monetary"
-                                options="{'currency_field': 'currency_id', 'field_digits': True}"
-                            />
-
-                            <field
-                                name="sale_total_with_canon"
-                                string="Venta total"
-                                readonly="1"
-                                widget="monetary"
-                                options="{'currency_field': 'currency_id', 'field_digits': True}"
-                            />
                         </group>
                     </group>
 
@@ -283,6 +233,7 @@
         <field name="name">product.product.catalog.normalized.form</field>
         <field name="model">product.product</field>
         <field name="inherit_id" ref="product.product_product_view_form_normalized"/>
+        <field name="active" eval="True"/>
         <field name="priority">120</field>
         <field name="arch" type="xml">
             <xpath expr="//form" position="replace">
@@ -398,33 +349,9 @@
                                     groups="base.group_user"
                                 />
                                 <field
-                                    name="supplier_taxes_id"
-                                    string="Impuestos de compra"
-                                    widget="many2many_tags"
-                                    options="{'no_create': False}"
-                                    context="{'default_type_tax_use': 'purchase'}"
-                                    groups="base.group_user"
-                                />
-                                <field
-                                    name="purchase_tax_amount"
-                                    string="Impuestos compra"
-                                    readonly="1"
-                                    widget="monetary"
-                                    options="{'currency_field': 'cost_currency_id', 'field_digits': True}"
-                                    groups="base.group_user"
-                                />
-                                <field
                                     name="canon_amount"
                                     widget="monetary"
                                     options="{'currency_field': 'currency_id', 'field_digits': True}"
-                                />
-                                <field
-                                    name="purchase_total_with_canon"
-                                    string="Costo total"
-                                    readonly="1"
-                                    widget="monetary"
-                                    options="{'currency_field': 'cost_currency_id', 'field_digits': True}"
-                                    groups="base.group_user"
                                 />
                                 <field
                                     name="supplier_partner_id"
@@ -445,27 +372,6 @@
                                 <field
                                     name="list_price"
                                     string="Precio de venta"
-                                    widget="monetary"
-                                    options="{'currency_field': 'currency_id', 'field_digits': True}"
-                                />
-                                <field
-                                    name="taxes_id"
-                                    string="Impuestos de venta"
-                                    widget="many2many_tags"
-                                    options="{'no_create': False}"
-                                    context="{'default_type_tax_use': 'sale'}"
-                                />
-                                <field
-                                    name="sale_tax_amount"
-                                    string="Impuestos venta"
-                                    readonly="1"
-                                    widget="monetary"
-                                    options="{'currency_field': 'currency_id', 'field_digits': True}"
-                                />
-                                <field
-                                    name="sale_total_with_canon"
-                                    string="Venta total"
-                                    readonly="1"
                                     widget="monetary"
                                     options="{'currency_field': 'currency_id', 'field_digits': True}"
                                 />

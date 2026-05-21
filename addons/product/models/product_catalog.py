@@ -112,25 +112,6 @@ class Product(models.Model):
         # No manipular aquí para evitar conflictos con registros _unknown
         return res
 
-    taxes_id = fields.Many2many(
-        'account.tax',
-        'product_taxes_rel',
-        'prod_id',
-        'tax_id',
-        string="Impuestos de venta",
-        help="Impuestos por defecto al vender el producto",
-        default=lambda self: self._default_sale_taxes(),
-    )
-    supplier_taxes_id = fields.Many2many(
-        'account.tax',
-        'product_supplier_taxes_rel',
-        'prod_id',
-        'tax_id',
-        string="Impuestos de compra",
-        help="Impuestos por defecto al comprar el producto",
-        default=lambda self: self._default_purchase_taxes(),
-    )
-
     @api.model
     def _is_model_available(self, model_name):
         registry = getattr(self.env, "registry", None)
@@ -410,47 +391,6 @@ class Product(models.Model):
         domain="[]",
         default=False,
         check_company=False,
-    )
-    purchase_tax_amount = fields.Monetary(
-        string="Impuesto de compra",
-        currency_field="cost_currency_id",
-        compute="_compute_tax_amounts",
-    )
-    purchase_tax_percent = fields.Float(
-        string="% impuesto compra",
-        compute="_compute_tax_percentages",
-        digits=(16, 2),
-    )
-    purchase_total = fields.Monetary(
-        string="Costo con impuesto",
-        currency_field="cost_currency_id",
-        compute="_compute_tax_amounts",
-    )
-    purchase_total_with_canon = fields.Monetary(
-        string="Costo + canon",
-        currency_field="cost_currency_id",
-        compute="_compute_totals_with_canon",
-    )
-    sale_tax_amount = fields.Monetary(
-        string="Impuesto de venta",
-        currency_field="currency_id",
-        compute="_compute_tax_amounts",
-    )
-    sale_tax_percent = fields.Float(
-        string="% impuesto venta",
-        compute="_compute_tax_percentages",
-        digits=(16, 2),
-    )
-
-    sale_total = fields.Monetary(
-        string="Precio con impuesto",
-        currency_field="currency_id",
-        compute="_compute_tax_amounts",
-    )
-    sale_total_with_canon = fields.Monetary(
-        string="Venta + canon",
-        currency_field="currency_id",
-        compute="_compute_totals_with_canon",
     )
     purchase_history_html = fields.Html(
         string="Historial de compras",
@@ -955,106 +895,6 @@ class Product(models.Model):
             if stale_lines:
                 stale_lines.unlink()
 
-
-    @api.depends("standard_price", "purchase_tax_amount", "canon_amount", "list_price", "sale_tax_amount")
-    def _compute_totals_with_canon(self):
-        for product in self:
-            base_purchase = product.standard_price or 0.0
-            tax_purchase = product.purchase_tax_amount or 0.0
-            canon = product.canon_amount or 0.0
-            product.purchase_total_with_canon = base_purchase + tax_purchase + canon
-
-            base_sale = product.list_price or 0.0
-            tax_sale = product.sale_tax_amount or 0.0
-            product.sale_total_with_canon = base_sale + tax_sale + canon
-
-    @api.depends(
-        "standard_price",
-        "list_price",
-        "supplier_taxes_id",
-        "taxes_id",
-        "company_id",
-        "currency_id",
-        "cost_currency_id",
-    )
-    def _compute_tax_amounts(self):
-        for product in self:
-            purchase_base = product.standard_price or 0.0
-            sale_base = product.list_price or 0.0
-
-            purchase_currency = product.cost_currency_id or product.currency_id
-            sale_currency = product.currency_id
-
-            purchase_vals = product._compute_price_taxes(
-                purchase_base,
-                product.supplier_taxes_id,
-                purchase_currency,
-            )
-            sale_vals = product._compute_price_taxes(
-                sale_base,
-                product.taxes_id,
-                sale_currency,
-            )
-
-            product.purchase_tax_amount = purchase_vals["tax_amount"]
-            product.purchase_total = purchase_vals["total"]
-            product.sale_tax_amount = sale_vals["tax_amount"]
-            product.sale_total = sale_vals["total"]
-
-    def _safe_percent_from_taxes(self, taxes, tax_use):
-        """Devuelve suma de impuestos % y evita romper si hay registros temporales en formulario."""
-        percent = 0.0
-        try:
-            percent = sum(
-                tax.amount
-                for tax in taxes
-                if getattr(tax, "amount_type", False) == "percent"
-            )
-        except Exception:
-            percent = 0.0
-
-        if percent:
-            return percent
-        # Si no hay impuestos aplicados, no forzar 21% en pantalla.
-        return 0.0
-
-    @api.depends(
-        "standard_price",
-        "list_price",
-        "purchase_tax_amount",
-        "sale_tax_amount",
-        "supplier_taxes_id",
-        "taxes_id",
-    )
-    def _compute_tax_percentages(self):
-        for product in self:
-            purchase_base = product.standard_price or 0.0
-            sale_base = product.list_price or 0.0
-
-            purchase_percent_from_taxes = product._safe_percent_from_taxes(
-                product.supplier_taxes_id, "purchase"
-            )
-            sale_percent_from_taxes = product._safe_percent_from_taxes(
-                product.taxes_id, "sale"
-            )
-
-            product.purchase_tax_percent = (
-                (product.purchase_tax_amount / purchase_base) * 100.0
-                if purchase_base
-                else purchase_percent_from_taxes
-            )
-            product.sale_tax_percent = (
-                (product.sale_tax_amount / sale_base) * 100.0
-                if sale_base
-                else sale_percent_from_taxes
-            )
-
-    @api.onchange("supplier_taxes_id", "taxes_id")
-    def _onchange_catalog_taxes_filter(self):
-        # No tocar valores en onchange: algunos clientes web envían registros temporales
-        # y filtrar aquí puede provocar que desaparezcan visualmente tras guardar.
-        return
-
     @api.model
     def _extract_tax_ids_from_m2m_value(self, raw_value):
         """Extrae IDs válidos de un valor M2M (ids/comandos) de forma robusta."""
@@ -1375,32 +1215,6 @@ class Product(models.Model):
                 return first
 
         return raw_value
-
-    @api.constrains("supplier_taxes_id", "taxes_id")
-    def _check_catalog_taxes_filter(self):
-        if not self._is_model_available("account.tax"):
-            return
-        for product in self:
-            if getattr(product.supplier_taxes_id, "_name", None) == "_unknown":
-                continue
-            if (
-                product.supplier_taxes_id
-                and "type_tax_use" in product.supplier_taxes_id._fields
-                and any(tax.type_tax_use != "purchase" for tax in product.supplier_taxes_id)
-            ):
-                raise ValidationError(
-                    _("Los impuestos de compra solo pueden tener tipo de uso 'purchase'.")
-                )
-            if getattr(product.taxes_id, "_name", None) == "_unknown":
-                continue
-            if (
-                product.taxes_id
-                and "type_tax_use" in product.taxes_id._fields
-                and any(tax.type_tax_use != "sale" for tax in product.taxes_id)
-            ):
-                raise ValidationError(
-                    _("Los impuestos de venta solo pueden tener tipo de uso 'sale'.")
-                )
 
     def _compute_histories(self):
         has_purchase_model = self._is_model_available("purchase.order.line")
