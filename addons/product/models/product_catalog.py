@@ -119,7 +119,6 @@ class Product(models.Model):
         'tax_id',
         string="Impuestos de venta",
         help="Impuestos por defecto al vender el producto",
-        domain=[('type_tax_use', '=', 'sale')],
         default=lambda self: self._default_sale_taxes(),
     )
     supplier_taxes_id = fields.Many2many(
@@ -129,7 +128,6 @@ class Product(models.Model):
         'tax_id',
         string="Impuestos de compra",
         help="Impuestos por defecto al comprar el producto",
-        domain=[('type_tax_use', '=', 'purchase')],
         default=lambda self: self._default_purchase_taxes(),
     )
 
@@ -1209,6 +1207,78 @@ class Product(models.Model):
         return taxes.ids
 
     @api.model
+    def _extract_tax_labels_from_m2m_value(self, raw_value):
+        """Extrae nombres/labels de impuestos cuando el cliente web no envía IDs."""
+        if raw_value in (False, None):
+            return []
+
+        labels = []
+
+        def _append_label(value):
+            if not isinstance(value, str):
+                return
+            normalized = value.strip()
+            if normalized:
+                labels.append(normalized)
+
+        if isinstance(raw_value, dict):
+            for key in ("label", "display_name", "name", "value"):
+                _append_label(raw_value.get(key))
+            nested_values = raw_value.get("values") or raw_value.get("records") or raw_value.get("data")
+            if isinstance(nested_values, (list, tuple)):
+                for item in nested_values:
+                    for nested_label in self._extract_tax_labels_from_m2m_value(item):
+                        _append_label(nested_label)
+            return list(dict.fromkeys(labels))
+
+        values = raw_value if isinstance(raw_value, (list, tuple)) else [raw_value]
+        for item in values:
+            if isinstance(item, dict):
+                for nested_label in self._extract_tax_labels_from_m2m_value(item):
+                    _append_label(nested_label)
+                continue
+            if isinstance(item, (list, tuple)):
+                if len(item) >= 2 and isinstance(item[1], str):
+                    _append_label(item[1])
+                elif len(item) == 1 and isinstance(item[0], str):
+                    _append_label(item[0])
+                continue
+            _append_label(item)
+
+        return list(dict.fromkeys(labels))
+
+    @api.model
+    def _resolve_tax_ids_from_labels(self, labels, tax_use):
+        if not labels or not self._is_model_available("account.tax"):
+            return []
+
+        normalized_labels = []
+        seen = set()
+        for label in labels:
+            normalized = (label or "").strip()
+            if normalized and normalized not in seen:
+                seen.add(normalized)
+                normalized_labels.append(normalized)
+        if not normalized_labels:
+            return []
+
+        allowed_companies = self.env.companies
+        taxes = self.env["account.tax"].search([
+            ("type_tax_use", "=", tax_use),
+            ("name", "in", normalized_labels),
+            "|",
+            ("company_id", "=", False),
+            ("company_id", "in", allowed_companies.ids),
+        ], order="sequence, id")
+
+        matched_ids = []
+        for label in normalized_labels:
+            match = taxes.filtered(lambda tax: (tax.name or "").strip() == label)[:1]
+            if match:
+                matched_ids.append(match.id)
+        return matched_ids
+
+    @api.model
     def _prepare_tax_m2m_write_value(self, raw_value, tax_use):
         """Normaliza payloads M2M de impuestos para create/write.
 
@@ -1227,6 +1297,14 @@ class Product(models.Model):
             clean_ids, explicit_clear = self._extract_tax_ids_from_m2m_value(raw_value)
         except Exception:
             clean_ids, explicit_clear = [], False
+
+        if not clean_ids:
+            label_ids = self._resolve_tax_ids_from_labels(
+                self._extract_tax_labels_from_m2m_value(raw_value),
+                tax_use,
+            )
+            if label_ids:
+                clean_ids = label_ids
 
         if clean_ids:
             clean_ids = self._sanitize_tax_ids(clean_ids, tax_use)

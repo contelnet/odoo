@@ -142,6 +142,24 @@ class TestProductCatalogPersistence(TransactionCase):
         self.assertEqual(product.taxes_id, self.sale_tax)
         self.assertEqual(product.supplier_taxes_id, self.purchase_tax)
 
+    def test_write_sets_taxes_from_label_only_payload(self):
+        if not (self.sale_tax and self.purchase_tax and getattr(self.sale_tax, '_name', '') == 'account.tax'):
+            self.skipTest('account.tax no disponible en este entorno de prueba')
+
+        product = self.env['product.template'].create({
+            'name': 'Producto impuestos por label',
+            'taxes_id': False,
+            'supplier_taxes_id': False,
+        })
+
+        product.write({
+            'taxes_id': [{'label': self.sale_tax.name}],
+            'supplier_taxes_id': [{'label': self.purchase_tax.name}],
+        })
+
+        self.assertEqual(product.taxes_id, self.sale_tax)
+        self.assertEqual(product.supplier_taxes_id, self.purchase_tax)
+
     def test_write_creates_serial_numbers_and_keeps_tracking(self):
         product = self.env['product.template'].create({
             'name': 'Producto persistencia seriales',

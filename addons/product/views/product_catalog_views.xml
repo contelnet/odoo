@@ -139,7 +139,6 @@
                                 name="supplier_taxes_id"
                                 string="Impuestos de compra"
                                 widget="many2many_tags"
-                                domain="[('type_tax_use', '=', 'purchase')]"
                                 options="{'no_create': False}"
                                 context="{'default_type_tax_use': 'purchase'}"
                                 groups="base.group_user"
@@ -197,7 +196,6 @@
                                 name="taxes_id"
                                 string="Impuestos de venta"
                                 widget="many2many_tags"
-                                domain="[('type_tax_use', '=', 'sale')]"
                                 options="{'no_create': False}"
                                 context="{'default_type_tax_use': 'sale'}"
                             />
@@ -403,7 +401,6 @@
                                     name="supplier_taxes_id"
                                     string="Impuestos de compra"
                                     widget="many2many_tags"
-                                    domain="[('type_tax_use', '=', 'purchase')]"
                                     options="{'no_create': False}"
                                     context="{'default_type_tax_use': 'purchase'}"
                                     groups="base.group_user"
@@ -455,7 +452,6 @@
                                     name="taxes_id"
                                     string="Impuestos de venta"
                                     widget="many2many_tags"
-                                    domain="[('type_tax_use', '=', 'sale')]"
                                     options="{'no_create': False}"
                                     context="{'default_type_tax_use': 'sale'}"
                                 />
