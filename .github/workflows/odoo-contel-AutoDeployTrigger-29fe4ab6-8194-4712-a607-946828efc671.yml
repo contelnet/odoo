@@ -6,6 +6,9 @@ on:
   push:
     branches: 
       [ 18.0 ]
+    paths:
+    - '**'
+    - '.github/workflows/odoo-contel-AutoDeployTrigger-29fe4ab6-8194-4712-a607-946828efc671.yml'
 
   # Allow manual trigger 
   workflow_dispatch:      
