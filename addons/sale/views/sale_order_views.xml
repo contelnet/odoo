@@ -389,7 +389,7 @@
                         <field name="pricelist_id" invisible="1" readonly="state in ['cancel', 'sale']" groups="!product.group_product_pricelist"/>
                         <field name="tax_country_id" invisible="1"/>
                         <field name="tax_calculation_rounding_method" invisible="1"/>
-                        <field name="payment_term_id" placeholder="Immediate" options="{'no_open': True, 'no_create': True}"/>
+                        <field name="payment_term_id" placeholder="Immediate" options="{'no_create': True}"/>
                     </group>
                 </group>
                 <notebook>
@@ -403,10 +403,6 @@
                                 <field name="technical_price_unit" invisible="1"/>
                                 <field name="display_type" invisible="1"/>
                                 <field name="is_downpayment" invisible="1"/>
-                                <!--
-                                    We need the sequence field to be here for new lines to be added at the correct position.
-                                    TODO: at some point we want to fix this in the framework so that an invisible field is not required.
-                                -->
                                 <field name="sequence" invisible="1"/>
                                 <field name="product_uom_category_id" invisible="1"/>
                                 <group>
