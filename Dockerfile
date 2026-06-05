@@ -4,9 +4,15 @@ USER root
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        wkhtmltopdf \
         python3-docx \
+        fontconfig \
+        fonts-dejavu-core \
+        fonts-freefont-ttf \
+        fonts-liberation2 \
+        fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
+
+RUN wkhtmltopdf --version | grep -q 'with patched qt'
     
 
 RUN rm -rf /usr/lib/python3/dist-packages/odoo/addons
