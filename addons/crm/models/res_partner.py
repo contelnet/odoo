@@ -484,10 +484,15 @@ class Partner(models.Model):
         'location_ids',
         'parent_id.location_ids',
     )
+    @api.depends('parent_id', 'parent_id.location_ids', 'location_ids')
     def _compute_available_location_ids(self):
-        # Ahora cada cuenta (principal o secundaria) solo ve sus propias ubicaciones
         for partner in self:
-            partner.available_location_ids = partner.location_ids
+            if partner.parent_id:
+                # Si es un contacto (tiene cuenta padre), mostramos las ubicaciones del padre
+                partner.available_location_ids = partner.parent_id.location_ids
+            else:
+                # Si es la propia empresa principal, mostramos sus propias ubicaciones
+                partner.available_location_ids = partner.location_ids
 
     def _get_main_company_for_locations(self):
         self.ensure_one()
