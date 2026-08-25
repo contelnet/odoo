@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Formulario del Pedido (Dentro) -->
+        <record id="view_purchase_order_form_inherit_paid_toggle" model="ir.ui.view">
+            <field name="name">purchase.order.form.inherit.paid.toggle</field>
+            <field name="model">purchase.order</field>
+            <field name="inherit_id" ref="purchase.purchase_order_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='date_order']" position="before">
+                    <field name="is_manually_paid" widget="boolean_toggle"/>
+                </xpath>
+            </field>
+        </record>
+
+<!-- 2. Lista de Pedidos (Fuera) - ¡Apuntando a la vista con KPIs! -->
+        <record id="view_purchase_order_kpis_tree_inherit_paid_column" model="ir.ui.view">
+            <field name="name">purchase.order.kpis.tree.inherit.paid.column</field>
+            <field name="model">purchase.order</field>
+            <field name="inherit_id" ref="purchase.purchase_order_kpis_tree"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='state']" position="after">
+                    <field name="is_manually_paid" widget="boolean_toggle" optional="show"/>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Lo añadimos también a la lista general de Pedidos de Compra -->
+        <record id="view_purchase_order_tree_inherit_paid_column_normal" model="ir.ui.view">
+            <field name="name">purchase.order.tree.inherit.paid.column.normal</field>
+            <field name="model">purchase.order</field>
+            <field name="inherit_id" ref="purchase.purchase_order_tree"/>
+            <field name="arch" type="xml">
+                <!-- Lo ponemos justo después del estado de facturación -->
+                <xpath expr="//field[@name='invoice_status']" position="after">
+                    <field name="is_manually_paid" widget="boolean_toggle" optional="show"/>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- 3. Lista del menú "Pedidos de Compra" (La definitiva) -->
+        <record id="view_purchase_order_view_tree_inherit_paid_column" model="ir.ui.view">
+            <field name="name">purchase.order.view.tree.inherit.paid.column</field>
+            <field name="model">purchase.order</field>
+            <field name="inherit_id" ref="purchase.purchase_order_view_tree"/>
+            <field name="arch" type="xml">
+                <!-- Lo ponemos justo después del estado de facturación igual que en la otra -->
+                <xpath expr="//field[@name='invoice_status']" position="after">
+                    <field name="is_manually_paid" widget="boolean_toggle" optional="show"/>
+                </xpath>
+            </field>
+        </record>
+
+
+    </data>
+</odoo>

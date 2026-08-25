@@ -91,3 +91,6 @@ addons/crm/wizard/__pycache__/crm_lead_to_opportunity.cpython-313.pyc
 addons/crm/wizard/__pycache__/crm_merge_opportunities.cpython-313.pyc
 addons/crm/wizard/__pycache__/LOPDDocumentWizard.cpython-313.pyc
 addons/crm/wizard/__pycache__/outlook_message_wizard.cpython-313.pyc
+.venv/
+venv/
+*.dump
