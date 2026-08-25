@@ -51,6 +51,34 @@
             </field>
         </record>
 
+        <!-- Tu record anterior del toggle de pagado estará por aquí arriba -->
+        
+        <!-- NUEVO RECORD: Añadimos la columna de números de serie en las líneas -->
+        <record id="view_purchase_order_form_inherit_serial" model="ir.ui.view">
+            <field name="name">purchase.order.form.inherit.serial</field>
+            <field name="model">purchase.order</field>
+            <field name="inherit_id" ref="purchase.purchase_order_form"/>
+            <field name="arch" type="xml">
+                <!-- Buscamos la lista de líneas de pedido y lo ponemos después de la descripción (name) -->
+                <xpath expr="//field[@name='order_line']//list//field[@name='name']" position="after">
+                    <field name="serial_numbers" optional="show" placeholder="Pega aquí los SN..."/>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- NUEVO RECORD: Botón de guardado manual en la cabecera -->
+        <record id="view_purchase_order_form_inherit_save_button" model="ir.ui.view">
+            <field name="name">purchase.order.form.inherit.save</field>
+            <field name="model">purchase.order</field>
+            <field name="inherit_id" ref="purchase.purchase_order_form"/>
+            <field name="arch" type="xml">
+                <!-- Buscamos la cabecera donde están los botones de estado y lo metemos dentro -->
+                <xpath expr="//header" position="inside">
+                    <button name="action_force_save" type="object" string="Guardar Seriales" class="oe_highlight" icon="fa-save"/>
+                </xpath>
+            </field>
+        </record>
+
 
     </data>
 </odoo>

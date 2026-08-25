@@ -1,13 +1,12 @@
 {
-    "name": "Compras: Toggle de Pagado",
-    "summary": "Añade un botón manual para marcar pedidos de compra como pagados",
-    "version": "1.0",
-    "category": "Purchases",
-    "author": "Gabriel",
-    "depends": ["purchase"],
-    "data": [
-        "views/purchase_order_views.xml",
+    'name': 'Compras: Toggle de Pagado y Relacionados',
+    'version': '18.0.1.0',
+    'category': 'Purchases',
+    'depends': ['purchase', 'product'],
+    'data': [
+        'views/purchase_order_views.xml',
+        'views/product_views.xml',
     ],
-    "installable": True,
-    "application": False,
+    'installable': True,
+    'application': False,
 }
