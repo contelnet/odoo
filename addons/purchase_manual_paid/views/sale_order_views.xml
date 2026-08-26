@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- 1. Añadimos el desplegable en la línea de venta -->
+    <record id="view_order_form_inherit_serial" model="ir.ui.view">
+        <field name="name">sale.order.form.inherit.serial</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <!-- Lo ponemos justo después del nombre (descripción) del producto -->
+            <xpath expr="//field[@name='order_line']//list//field[@name='name']" position="after">
+                <!-- DOMINIO CORREGIDO: Compara la plantilla del lote con la plantilla de la línea de venta -->
+                <field name="serial_id" optional="show" domain="[('product_id.product_tmpl_id', '=', product_template_id)]" options="{'no_create': True, 'no_open': True}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- 2. Ampliamos el buscador inteligente de las Ventas -->
+    <record id="view_sales_order_filter_inherit_serial" model="ir.ui.view">
+        <field name="name">sale.order.search.inherit.serial</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_sales_order_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="attributes">
+                <attribute name="filter_domain">['|', '|', '|', ('name', 'ilike', self), ('client_order_ref', 'ilike', self), ('partner_id', 'child_of', self), ('order_line.serial_id.name', 'ilike', self)]</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>

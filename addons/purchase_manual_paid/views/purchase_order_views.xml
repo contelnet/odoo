@@ -13,7 +13,7 @@
             </field>
         </record>
 
-<!-- 2. Lista de Pedidos (Fuera) - ¡Apuntando a la vista con KPIs! -->
+        <!-- 2. Lista de Pedidos (Fuera) - ¡Apuntando a la vista con KPIs! -->
         <record id="view_purchase_order_kpis_tree_inherit_paid_column" model="ir.ui.view">
             <field name="name">purchase.order.kpis.tree.inherit.paid.column</field>
             <field name="model">purchase.order</field>
@@ -50,8 +50,6 @@
                 </xpath>
             </field>
         </record>
-
-        <!-- Tu record anterior del toggle de pagado estará por aquí arriba -->
         
         <!-- NUEVO RECORD: Añadimos la columna de números de serie en las líneas -->
         <record id="view_purchase_order_form_inherit_serial" model="ir.ui.view">
@@ -79,6 +77,44 @@
             </field>
         </record>
 
+        <!-- NUEVO RECORD: Ampliamos el buscador inteligente de las Compras -->
+        <record id="view_purchase_order_filter_inherit_serial" model="ir.ui.view">
+            <field name="name">purchase.order.search.inherit.serial</field>
+            <field name="model">purchase.order</field>
+            <field name="inherit_id" ref="purchase.view_purchase_order_filter"/>
+            <field name="arch" type="xml">
+                <!-- Sobrescribimos el filtro principal para que busque en tu cajón de texto 'serial_numbers' -->
+                <xpath expr="//field[@name='name']" position="attributes">
+                    <attribute name="filter_domain">['|', '|', '|', ('name', 'ilike', self), ('partner_ref', 'ilike', self), ('partner_id', 'child_of', self), ('order_line.serial_numbers', 'ilike', self)]</attribute>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- =================================================================== -->
+        <!-- NUEVO RECORD: Ocultar botón blanco inútil y añadir botón de Factura -->
+        <!-- =================================================================== -->
+        <record id="purchase_order_form_inherit_clean_buttons" model="ir.ui.view">
+            <field name="name">purchase.order.form.clean.buttons</field>
+            <field name="model">purchase.order</field>
+            <field name="inherit_id" ref="purchase.purchase_order_form"/>
+            <field name="arch" type="xml">
+                
+                <!-- 1. Hacemos invisible el botón blanco (el que NO tiene la clase oe_highlight) -->
+                <xpath expr="//header/button[@name='action_create_invoice'][not(contains(@class, 'oe_highlight'))]" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+
+                <!-- 2. Añadimos nuestro acceso directo a la factura al lado del botón principal -->
+                <xpath expr="//header/button[@name='action_create_invoice'][contains(@class, 'oe_highlight')]" position="after">
+                    <button name="action_view_invoice" 
+                            type="object" 
+                            string="Ir a factura de proveedor" 
+                            class="btn-secondary" 
+                            invisible="invoice_count == 0"/>
+                </xpath>
+
+            </field>
+        </record>
 
     </data>
 </odoo>

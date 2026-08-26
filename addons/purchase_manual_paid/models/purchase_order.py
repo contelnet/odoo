@@ -14,16 +14,6 @@ class PurchaseOrder(models.Model):
         tracking=True
     )
 
-class PurchaseOrder(models.Model):
-    _inherit = "purchase.order"
-
-    is_manually_paid = fields.Boolean(
-        string="¿Pagado?",
-        help="Marca manualmente si ya has pagado este pedido.",
-        default=False,
-        tracking=True
-    )
-
     def action_force_save(self):
         """
         Este botón no necesita hacer nada especial en Python.
@@ -31,6 +21,22 @@ class PurchaseOrder(models.Model):
         haciendo que salte nuestra lógica de creación/borrado de seriales.
         """
         return True
+
+    # --- NUEVA MAGIA: Guardar proveedor en la ficha del producto ---
+    def button_confirm(self):
+        # 1. Ejecutamos el comportamiento estándar de Odoo para confirmar el pedido
+        res = super(PurchaseOrder, self).button_confirm()
+        
+        # 2. Recorremos los productos del pedido y les actualizamos el proveedor
+        for order in self:
+            if order.partner_id:
+                for line in order.order_line:
+                    # Nos aseguramos de que haya un producto en la línea
+                    if line.product_id and line.product_id.product_tmpl_id:
+                        # Asignamos el proveedor al campo personalizado
+                        line.product_id.product_tmpl_id.supplier_partner_id = order.partner_id.id
+                        
+        return res
 
 # ---------------------------------------------------------
 # 2. LÍNEAS DEL PEDIDO (Creación y Borrado de Seriales)
@@ -87,6 +93,28 @@ class PurchaseOrderLine(models.Model):
         lines = super().create(vals_list)
         lines._generar_lotes_automaticos()
         return lines
+
+    def _prepare_account_move_line(self, move=False):
+        # 1. Dejamos que Odoo prepare la línea de la factura de forma estándar
+        res = super(PurchaseOrderLine, self)._prepare_account_move_line(move)
+        
+        # 2. Si tenemos números de serie escritos en el pedido de compra...
+        if self.serial_numbers and self.product_id:
+            # Cogemos el primer número de serie limpio del texto que pegaste
+            seriales_sucios = [s.strip() for s in self.serial_numbers.split('\n') if s.strip()]
+            if seriales_sucios:
+                primer_serial = seriales_sucios[0]
+                
+                # Buscamos si existe ese número de serie en la pestaña personalizada del producto
+                if hasattr(self.product_id.product_tmpl_id, 'serial_number_ids'):
+                    serial_rec = self.product_id.product_tmpl_id.serial_number_ids.filtered(
+                        lambda s: s.name == primer_serial
+                    )
+                    if serial_rec:
+                        # Inyectamos el ID exacto que pide el campo many2one de la factura
+                        res['serial_number_id'] = serial_rec[0].id
+                        
+        return res
 
     def write(self, vals):
         # --- NUEVA MAGIA: Detectar si has borrado números de serie ---
