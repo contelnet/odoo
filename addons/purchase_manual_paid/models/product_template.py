@@ -1,7 +1,7 @@
 from odoo import models, fields, api
 
 # ---------------------------------------------------------
-# 1. PLANTILLA DE PRODUCTO (Lo que ya tenías)
+# 1. PLANTILLA DE PRODUCTO
 # ---------------------------------------------------------
 class ProductTemplate(models.Model):
     _inherit = 'product.template'
@@ -12,6 +12,15 @@ class ProductTemplate(models.Model):
         'dest_id', 'src_id',
         string='Productos relacionados / Compatibles'
     )
+
+    # --- NUEVA MAGIA: Anular la validación obligatoria de la casilla ---
+    def _check_serial_number(self):
+        """
+        Sobrescribimos la función original de product_catalog para que 
+        no lance el ValidationError al marcar la casilla sin meter serial.
+        """
+        pass
+    # -------------------------------------------------------------------
 
     @api.model
     def _name_search(self, name, domain=None, operator='ilike', limit=None, order=None):
@@ -68,6 +77,14 @@ class ProductTemplateSerialNumber(models.Model):
         # Si lo borras de tu pestaña, intentamos borrarlo de la tabla oficial
         StockLot = self.env['stock.lot']
         for rec in self:
+            
+            # --- NUEVA MAGIA: El chivato del borrado en el historial ---
+            if rec.name and rec.product_tmpl_id:
+                # Añadidas las comillas simples para que el número quede limpio y destacado
+                mensaje = f"🗑️ Aviso del sistema: Se ha eliminado manualmente el número de serie '{rec.name}' de la pestaña de seriales."
+                rec.product_tmpl_id.message_post(body=mensaje)
+            # -----------------------------------------------------------
+
             product = rec.product_tmpl_id.product_variant_id
             if product and rec.name:
                 lot = StockLot.search([

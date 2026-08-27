@@ -39,7 +39,7 @@ class PurchaseOrder(models.Model):
         return res
 
 # ---------------------------------------------------------
-# 2. LÍNEAS DEL PEDIDO (Creación y Borrado de Seriales)
+# 2. LÍNEAS DEL PEDIDO (Creación, Desglose Masivo y Borrado de Seriales)
 # ---------------------------------------------------------
 class PurchaseOrderLine(models.Model):
     _inherit = 'purchase.order.line'
@@ -53,7 +53,7 @@ class PurchaseOrderLine(models.Model):
         """Crea los números de serie que sean nuevos."""
         for line in self:
             if line.serial_numbers and line.product_id:
-                seriales_sucios = re.split(r'[\n,;]+', line.serial_numbers)
+                seriales_sucios = [s.strip() for s in re.split(r'[\s\t\n,;]+', line.serial_numbers) if s.strip()]
                 
                 # 1. Crear en stock.lot oficial
                 if 'stock.lot' in self.env:
@@ -90,7 +90,23 @@ class PurchaseOrderLine(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        lines = super().create(vals_list)
+        # Desglose masivo al crear líneas si se pegan varios seriales
+        expanded_vals_list = []
+        for vals in vals_list:
+            serial_text = vals.get('serial_numbers', '')
+            if serial_text:
+                seriales = [s.strip() for s in re.split(r'[\s\t\n,;]+', serial_text) if s.strip()]
+                if len(seriales) > 1:
+                    # Clonamos la línea dividiendo los seriales uno a uno y cantidad a 1.0
+                    for serial in seriales:
+                        new_vals = vals.copy()
+                        new_vals['serial_numbers'] = serial
+                        new_vals['product_qty'] = 1.0
+                        expanded_vals_list.append(new_vals)
+                    continue
+            expanded_vals_list.append(vals)
+
+        lines = super().create(expanded_vals_list)
         lines._generar_lotes_automaticos()
         return lines
 
@@ -100,8 +116,7 @@ class PurchaseOrderLine(models.Model):
         
         # 2. Si tenemos números de serie escritos en el pedido de compra...
         if self.serial_numbers and self.product_id:
-            # Cogemos el primer número de serie limpio del texto que pegaste
-            seriales_sucios = [s.strip() for s in self.serial_numbers.split('\n') if s.strip()]
+            seriales_sucios = [s.strip() for s in re.split(r'[\s\t\n,;]+', self.serial_numbers) if s.strip()]
             if seriales_sucios:
                 primer_serial = seriales_sucios[0]
                 
@@ -117,47 +132,120 @@ class PurchaseOrderLine(models.Model):
         return res
 
     def write(self, vals):
-        # --- NUEVA MAGIA: Detectar si has borrado números de serie ---
+        # --- DESGLOSE MASIVO EN EDICIÓN ---
+        if 'serial_numbers' in vals and len(self) == 1:
+            serial_text = vals.get('serial_numbers', '')
+            if serial_text:
+                seriales = [s.strip() for s in re.split(r'[\s\t\n,;]+', serial_text) if s.strip()]
+                if len(seriales) > 1:
+                    vals['serial_numbers'] = seriales[0]
+                    vals['product_qty'] = 1.0
+                    
+                    order = self.order_id
+                    for serial in seriales[1:]:
+                        self.copy({
+                            'order_id': order.id,
+                            'serial_numbers': serial,
+                            'product_qty': 1.0,
+                        })
+
+        # --- GESTIÓN DE BORRADO DE SERIALES Y LÍNEAS VACÍAS ---
         if 'serial_numbers' in vals:
             for line in self:
                 old_text = line.serial_numbers or ""
                 new_text = vals.get('serial_numbers') or ""
 
-                # Sacamos los seriales que había antes y los que hay ahora
-                old_serials = {s.strip() for s in re.split(r'[\n,;]+', old_text) if s.strip()}
-                new_serials = {s.strip() for s in re.split(r'[\n,;]+', new_text) if s.strip()}
+                # Si vacían el campo de golpe, borramos el serial asociado en la ficha del producto y la línea
+                if not new_text.strip():
+                    if old_text.strip() and line.product_id:
+                        serial_a_borrar = old_text.strip()
+                        # A. Borrar de stock.lot
+                        if 'stock.lot' in self.env:
+                            lot = self.env['stock.lot'].search([
+                                ('name', '=', serial_a_borrar),
+                                ('product_id', '=', line.product_id.id)
+                            ], limit=1)
+                            if lot:
+                                try: lot.unlink()
+                                except: pass
+                        # B. Borrar de la pestaña personalizada del producto
+                        if hasattr(line.product_id.product_tmpl_id, 'serial_number_ids'):
+                            custom_lot = line.product_id.product_tmpl_id.serial_number_ids.filtered(
+                                lambda s: s.name == serial_a_borrar
+                            )
+                            if custom_lot:
+                                line.product_id.product_tmpl_id.write({
+                                    'serial_number_ids': [(2, custom_lot.id, 0)]
+                                })
+                    
+                    # Autodestruimos la línea vacía del pedido
+                    line.unlink()
+                    continue
 
-                # Restamos para ver cuáles han desaparecido del texto
+                # Lógica estándar para listas si quedan restos
+                old_serials = {s.strip() for s in re.split(r'[\s\t\n,;]+', old_text) if s.strip()}
+                new_serials = {s.strip() for s in re.split(r'[\s\t\n,;]+', new_text) if s.strip()}
                 serials_to_delete = old_serials - new_serials
 
                 if serials_to_delete and line.product_id:
-                    # A. Borrar del registro oficial
                     if 'stock.lot' in self.env:
                         lots_to_delete = self.env['stock.lot'].search([
                             ('name', 'in', list(serials_to_delete)),
                             ('product_id', '=', line.product_id.id)
                         ])
                         if lots_to_delete:
-                            try:
-                                lots_to_delete.unlink()
-                            except Exception:
-                                # Si Odoo bloquea el borrado (ej. ya lo has vendido), lo ignoramos por seguridad.
-                                pass
+                            try: lots_to_delete.unlink()
+                            except: pass
 
-                    # B. Borrar de tu pestaña personalizada
                     if hasattr(line.product_id.product_tmpl_id, 'serial_number_ids'):
                         custom_serials = line.product_id.product_tmpl_id.serial_number_ids.filtered(
                             lambda s: s.name in serials_to_delete
                         )
                         if custom_serials:
-                            # El código (2, ID, 0) es la orden interna de Odoo para borrar ese registro
                             line.product_id.product_tmpl_id.write({
                                 'serial_number_ids': [(2, custom.id, 0) for custom in custom_serials]
                             })
 
-        # --- Fin de la nueva magia ---
+        if not self.exists():
+            return True
 
         res = super().write(vals)
-        if 'serial_numbers' in vals:
+        if 'serial_numbers' in vals and self.exists():
             self._generar_lotes_automaticos()
         return res
+
+    # --- NUEVA MAGIA: Limpiar el inventario al borrar la línea entera ---
+# --- NUEVA MAGIA: Limpiar el inventario al borrar la línea entera ---
+    def unlink(self):
+        # Antes de que Odoo desintegre las líneas del pedido, rescatamos sus seriales
+        for line in self:
+            if line.serial_numbers and line.product_id:
+                # Extraemos los seriales que estaban escritos en esta línea
+                seriales_a_borrar = [s.strip() for s in re.split(r'[\s\t\n,;]+', line.serial_numbers) if s.strip()]
+                
+                if seriales_a_borrar:
+                    # 1. Disparamos directamente el borrado de tu pestaña personalizada
+                    if hasattr(line.product_id.product_tmpl_id, 'serial_number_ids'):
+                        custom_serials = line.product_id.product_tmpl_id.serial_number_ids.filtered(
+                            lambda s: s.name in seriales_a_borrar
+                        )
+                        if custom_serials:
+                            # Al hacer unlink() aquí, Odoo ejecuta el chivato del chat 
+                            # y borra el stock.lot automáticamente (lo que programamos antes)
+                            custom_serials.unlink()
+                            continue # Si ya lo hemos destruido, pasamos a la siguiente línea
+                            
+                    # 2. Fallback de seguridad: Si no hay pestaña, borramos de stock.lot a la fuerza
+                    if 'stock.lot' in self.env:
+                        lots_to_delete = self.env['stock.lot'].search([
+                            ('name', 'in', seriales_a_borrar),
+                            ('product_id', '=', line.product_id.id)
+                        ])
+                        if lots_to_delete:
+                            try:
+                                lots_to_delete.unlink()
+                            except Exception:
+                                pass
+
+        # Una vez que hemos limpiado el rastro, dejamos que Odoo borre la línea del pedido
+        return super().unlink()
