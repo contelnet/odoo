@@ -14,6 +14,28 @@ class PurchaseOrder(models.Model):
         tracking=True
     )
 
+    @api.model
+    def _name_search(self, name, domain=None, operator='ilike', limit=None, order=None):
+        """
+        Permite buscar pedidos de compra escribiendo directamente el número de serie en la barra de búsqueda.
+        """
+        domain = domain or []
+        if name:
+            # Buscamos qué líneas de compra tienen este número de serie
+            lines = self.env['purchase.order.line'].search([('serial_numbers', operator, name)])
+            order_ids = lines.mapped('order_id').ids
+            
+            # Ampliamos el dominio para que busque por el nombre del pedido (P0000x), referencia o si el ID está en los pedidos encontrados
+            search_domain = [
+                '|', '|',
+                ('name', operator, name),
+                ('partner_ref', operator, name),
+                ('id', 'in', order_ids)
+            ]
+            domain = search_domain + domain
+            
+        return super()._name_search(name, domain=domain, operator=operator, limit=limit, order=order)
+
     def action_force_save(self):
         """
         Este botón no necesita hacer nada especial en Python.

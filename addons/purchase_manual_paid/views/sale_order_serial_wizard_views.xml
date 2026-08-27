@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sale_order_line_serial_wizard_form" model="ir.ui.view">
+        <field name="name">sale.order.line.serial.wizard.form</field>
+        <field name="model">sale.order.line.serial.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Desglose de Números de Serie">
+                
+                <div class="alert alert-info text-center" role="alert" style="margin-bottom: 20px;">
+                    <i class="fa fa-search mr-1"></i> Pulsa en "Agregar línea" para buscar y seleccionar los números de serie que vas a entregar.
+                </div>
+                
+                <field name="order_line_id" invisible="1"/>
+                
+                <group>
+                    <field name="product_id" readonly="1" string="Producto" options="{'no_open': True}"/>
+                </group>
+                
+                <group string="Números de serie seleccionados">
+                    <!-- Al dejar el campo limpio sin el <tree> dentro, Odoo usa su tabla oficial perfecta -->
+                    <field name="serial_ids" nolabel="1"/>
+                </group>
+                
+                <footer>
+                    <button string="Confirmar desglose" type="object" name="action_confirm" class="btn-primary" icon="fa-check"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel" icon="fa-times"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

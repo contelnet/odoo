@@ -1,4 +1,5 @@
 from odoo import models, fields, api
+from odoo.exceptions import UserError
 
 # ---------------------------------------------------------
 # 1. PLANTILLA DE PRODUCTO
@@ -12,6 +13,33 @@ class ProductTemplate(models.Model):
         'dest_id', 'src_id',
         string='Productos relacionados / Compatibles'
     )
+    
+    template_serial_ids = fields.One2many(
+        'product.template.serial.number',
+        'product_tmpl_id',
+        string='Seriales del producto'
+    )
+    
+
+    @api.model
+    def _name_search(self, name, domain=None, operator='ilike', limit=None, order=None):
+        domain = domain or []
+        if name:
+            custom_serials = self.env['product.template.serial.number'].search([('name', operator, name)])
+            product_tmpl_ids = custom_serials.mapped('product_tmpl_id').ids
+
+            related_products = self.search([('related_product_ids.name', operator, name)])
+
+            search_domain = [
+                '|', '|', '|',
+                ('name', operator, name),
+                ('default_code', operator, name),
+                ('id', 'in', product_tmpl_ids),
+                ('id', 'in', related_products.ids),
+            ]
+            domain = search_domain + domain
+
+        return super()._name_search(name, domain=domain, operator=operator, limit=limit, order=order)
 
     # --- NUEVA MAGIA: Anular la validación obligatoria de la casilla ---
     def _check_serial_number(self):
@@ -22,27 +50,6 @@ class ProductTemplate(models.Model):
         pass
     # -------------------------------------------------------------------
 
-    @api.model
-    def _name_search(self, name, domain=None, operator='ilike', limit=None, order=None):
-        """
-        Permite buscar por el nombre del producto principal, referencia o productos relacionados.
-        """
-        domain = domain or []
-        if name:
-            # Buscamos productos cuyos productos relacionados coincidan
-            related_products = self.search([('related_product_ids.name', operator, name)])
-            
-            # Sintaxis correcta de Odoo para OR con 3 condiciones ('|' repetido)
-            search_domain = [
-                '|', '|',
-                ('name', operator, name),
-                ('default_code', operator, name),
-                ('id', 'in', related_products.ids)
-            ]
-            domain = search_domain + domain
-            
-        return super()._name_search(name, domain=domain, operator=operator, limit=limit, order=order)
-
 # ---------------------------------------------------------
 # 2. TABLA PERSONALIZADA DE SERIALES (El puente hacia Inventario)
 # ---------------------------------------------------------
@@ -51,20 +58,20 @@ class ProductTemplateSerialNumber(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        # 1. Creamos el registro en tu pestaña personalizada
         records = super().create(vals_list)
-        
-        # 2. Hacemos que viaje a la tabla oficial de Odoo (stock.lot)
         StockLot = self.env['stock.lot']
         for rec in records:
-            # Buscamos la variante del producto
             product = rec.product_tmpl_id.product_variant_id
-            if product and rec.name:
+            if not product:
+                raise UserError(
+                    f"No se pudo sincronizar el serial '{rec.name}': "
+                    f"el producto '{rec.product_tmpl_id.name}' no tiene variante disponible."
+                )
+            if rec.name:
                 existe = StockLot.search([
-                    ('name', '=', rec.name), 
+                    ('name', '=', rec.name),
                     ('product_id', '=', product.id)
                 ], limit=1)
-                
                 if not existe:
                     StockLot.create({
                         'name': rec.name,
