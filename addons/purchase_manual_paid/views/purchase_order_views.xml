@@ -77,15 +77,19 @@
             </field>
         </record>
 
-        <!-- NUEVO RECORD: Ampliamos el buscador inteligente de las Compras -->
+        <!-- NUEVO RECORD: Búsqueda directa al pulsar Enter (Modo Fuerza Bruta) -->
         <record id="view_purchase_order_filter_inherit_serial" model="ir.ui.view">
             <field name="name">purchase.order.search.inherit.serial</field>
             <field name="model">purchase.order</field>
             <field name="inherit_id" ref="purchase.view_purchase_order_filter"/>
+            <!-- Le metemos prioridad 99 para que sea el último en cargar y nadie lo pise -->
+            <field name="priority" eval="99"/>
             <field name="arch" type="xml">
-                <!-- Sobrescribimos el filtro principal para que busque en tu cajón de texto 'serial_numbers' -->
-                <xpath expr="//field[@name='name']" position="attributes">
-                    <attribute name="filter_domain">['|', '|', '|', ('name', 'ilike', self), ('partner_ref', 'ilike', self), ('partner_id', 'child_of', self), ('order_line.serial_numbers', 'ilike', self)]</attribute>
+                <!-- Reemplazamos el campo entero de raíz en vez de modificar sus atributos -->
+                <xpath expr="//search/field[@name='name']" position="replace">
+                    <field name="name" 
+                           string="Pedido / Serial" 
+                           filter_domain="['|', '|', '|', ('name', 'ilike', self), ('partner_ref', 'ilike', self), ('partner_id', 'child_of', self), ('order_line.serial_numbers', 'ilike', self)]"/>
                 </xpath>
             </field>
         </record>
