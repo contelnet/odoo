@@ -94,6 +94,24 @@
             </field>
         </record>
 
+        <!-- NUEVO RECORD: Búsqueda directa en la vista de PEDIDOS DE COMPRA confirmados -->
+        <record id="view_purchase_order_search_inherit_serial" model="ir.ui.view">
+            <field name="name">purchase.order.search.inherit.serial</field>
+            <field name="model">purchase.order</field>
+            <!-- Aquí usamos el ID externo que acabas de cazar en la foto -->
+            <field name="inherit_id" ref="purchase.purchase_order_view_search"/>
+            <field name="priority" eval="99"/>
+            <field name="arch" type="xml">
+                <xpath expr="//search/field[@name='name']" position="replace">
+                    <field name="name" 
+                           string="Pedido / Serial" 
+                           filter_domain="['|', '|', '|', ('name', 'ilike', self), ('partner_ref', 'ilike', self), ('partner_id', 'child_of', self), ('order_line.serial_numbers', 'ilike', self)]"/>
+                </xpath>
+            </field>
+        </record>
+
+
+
         <!-- =================================================================== -->
         <!-- NUEVO RECORD: Ocultar botón blanco inútil y añadir botón de Factura -->
         <!-- =================================================================== -->

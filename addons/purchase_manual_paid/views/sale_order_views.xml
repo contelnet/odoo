@@ -33,14 +33,17 @@
         </field>
     </record>
 
-    <!-- 2. Ampliamos el buscador inteligente de las Ventas -->
+    <!-- 2. Búsqueda directa al pulsar Enter en PEDIDOS DE VENTA (Modo Fuerza Bruta) -->
     <record id="view_sales_order_filter_inherit_serial" model="ir.ui.view">
         <field name="name">sale.order.search.inherit.serial</field>
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_sales_order_filter"/>
+        <field name="priority" eval="99"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='name']" position="attributes">
-                <attribute name="filter_domain">['|', '|', '|', ('name', 'ilike', self), ('client_order_ref', 'ilike', self), ('partner_id', 'child_of', self), ('order_line.serial_id.name', 'ilike', self)]</attribute>
+            <xpath expr="//search/field[@name='name']" position="replace">
+                <field name="name" 
+                       string="Pedido / Serial" 
+                       filter_domain="['|', '|', '|', ('name', 'ilike', self), ('client_order_ref', 'ilike', self), ('partner_id', 'child_of', self), ('order_line.serial_id.name', 'ilike', self)]"/>
             </xpath>
         </field>
     </record>
