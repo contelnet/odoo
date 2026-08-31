@@ -137,6 +137,20 @@
 
             </field>
         </record>
+        
+        <!-- NUEVO RECORD: Forzar la vista rápida bonita al crear productos en Compras -->
+        <record id="view_purchase_order_form_inherit_product_wizard" model="ir.ui.view">
+            <field name="name">purchase.order.form.inherit.product.wizard</field>
+            <field name="model">purchase.order</field>
+            <field name="inherit_id" ref="purchase.purchase_order_form"/>
+            <field name="arch" type="xml">
+                <!-- Buscamos el campo del producto dentro de la tabla de líneas de compra -->
+                <xpath expr="//field[@name='order_line']//list//field[@name='product_id']" position="attributes">
+                    <!-- Le inyectamos el form_view_ref para que cargue tu vista personalizada -->
+                    <attribute name="context">{'partner_id': parent.partner_id, 'form_view_ref': 'product.product_view_form_normalized'}</attribute>
+                </xpath>
+            </field>
+        </record>
 
     </data>
 </odoo>

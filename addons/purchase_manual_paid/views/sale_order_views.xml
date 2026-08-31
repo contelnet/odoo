@@ -22,6 +22,7 @@
         </field>
     </record>
 
+    <!-- Ampliamos el buscador de las plantillas de producto -->
     <record id="view_product_template_search_inherit_serial" model="ir.ui.view">
         <field name="name">product.template.search.inherit.serial</field>
         <field name="model">product.template</field>
@@ -47,4 +48,26 @@
             </xpath>
         </field>
     </record>
+    
+    <!-- 3. NUEVO RECORD: Forzar la vista rápida bonita al crear productos en Ventas (Variante y Plantilla) -->
+    <record id="view_sale_order_form_inherit_product_wizard" model="ir.ui.view">
+        <field name="name">sale.order.form.inherit.product.wizard</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <!-- Para cuando el sistema usa la Variante (product_id) -->
+            <xpath expr="//field[@name='order_line']//list//field[@name='product_id']" position="attributes">
+                <attribute name="context">
+                    {'partner_id': parent.partner_id, 'quantity': product_uom_qty, 'pricelist': parent.pricelist_id, 'uom':product_uom, 'company_id': parent.company_id, 'default_lst_price': price_unit, 'default_description_sale': name, 'form_view_ref': 'product.product_view_form_normalized'}
+                </attribute>
+            </xpath>
+            <!-- Para cuando el sistema usa la Plantilla (product_template_id) con el ID que cazaste -->
+            <xpath expr="//field[@name='order_line']//list//field[@name='product_template_id']" position="attributes">
+                <attribute name="context">
+                    {'partner_id': parent.partner_id, 'quantity': product_uom_qty, 'pricelist': parent.pricelist_id, 'uom':product_uom, 'company_id': parent.company_id, 'default_lst_price': price_unit, 'default_description_sale': name, 'form_view_ref': 'product.product_view_template_catalog_form'}
+                </attribute>
+            </xpath>
+        </field>
+    </record>
+    
 </odoo>
