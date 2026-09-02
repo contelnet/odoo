@@ -19,7 +19,13 @@ class ProductTemplate(models.Model):
         'product_tmpl_id',
         string='Seriales del producto'
     )
-    
+
+    # --- NUEVO CAMPO: Ubicación física en el almacén ---
+    ubicacion_almacen = fields.Char(
+        string="Ubicación",
+        help="Ubicación física del producto (Ej: Estantería A, Pasillo 3)"
+    )
+    # ---------------------------------------------------
 
     @api.model
     def _name_search(self, name, domain=None, operator='ilike', limit=None, order=None):

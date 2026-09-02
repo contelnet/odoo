@@ -1,28 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- 1. Productos compatibles -->
     <record id="view_product_template_form_inherit_related" model="ir.ui.view">
         <field name="name">product.template.form.inherit.related</field>
         <field name="model">product.template</field>
         <field name="inherit_id" ref="product.product_view_template_catalog_form"/>
         <field name="arch" type="xml">
-            <!-- Apuntamos a un campo interno fijo para evitar el error del 'string' -->
             <xpath expr="//field[@name='has_imei']" position="before">
                 <field name="related_product_ids" widget="many2many_tags" string="Productos compatibles" placeholder="Ej: Tóner, cables..."/>
             </xpath>
         </field>
     </record>
 
-    <!-- NUEVO RECORD: Ampliamos la barra de búsqueda por defecto de los productos -->
-        <record id="product_template_search_view_inherit_desc" model="ir.ui.view">
-            <field name="name">product.template.search.inherit.desc</field>
-            <field name="model">product.template</field>
-            <field name="inherit_id" ref="product.product_template_search_view"/>
-            <field name="arch" type="xml">
-                <!-- Buscamos el comportamiento del buscador principal (campo 'name') y sobrescribimos su lógica -->
-                <xpath expr="//field[@name='name']" position="attributes">
-                    <attribute name="filter_domain">['|', '|', '|', '|', '|', ('default_code', 'ilike', self), ('product_variant_ids.default_code', 'ilike', self), ('name', 'ilike', self), ('barcode', 'ilike', self), ('description_sale', 'ilike', self), ('product_notes', 'ilike', self)]</attribute>
-                </xpath>
-            </field>
-        </record>
+    <!-- 2. Ampliamos la barra de búsqueda por defecto de los productos -->
+    <record id="product_template_search_view_inherit_desc" model="ir.ui.view">
+        <field name="name">product.template.search.inherit.desc</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_search_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="attributes">
+                <attribute name="filter_domain">['|', '|', '|', '|', '|', ('default_code', 'ilike', self), ('product_variant_ids.default_code', 'ilike', self), ('name', 'ilike', self), ('barcode', 'ilike', self), ('description_sale', 'ilike', self), ('product_notes', 'ilike', self)]</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- 3. NUEVO Y DEFINITIVO: Columna de ubicación en la LISTA DEL CATÁLOGO -->
+    <record id="view_product_template_catalog_list_inherit_ubicacion" model="ir.ui.view">
+        <field name="name">product.template.catalog.list.inherit.ubicacion</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_view_template_catalog_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="ubicacion_almacen" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- 4. MANTENEMOS: El campo dentro del FORMULARIO para poder rellenar el dato -->
+    <record id="view_product_template_form_inherit_ubicacion" model="ir.ui.view">
+        <field name="name">product.template.form.inherit.ubicacion</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_only_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='default_code']" position="after">
+                <field name="ubicacion_almacen"/>
+            </xpath>
+        </field>
+    </record>
         
 </odoo>
