@@ -73,6 +73,7 @@
                                 invisible="not has_imei"
                                 required="has_imei"
                             />
+                            <field name="property_stock_inventory" string="Ubicación en almacén" />
                             <field name="has_serial_number" />
                             <field
                                 name="serial_number_input"
@@ -290,6 +291,7 @@
                                     invisible="not has_imei"
                                     required="has_imei"
                                 />
+                                <field name="property_stock_inventory" string="Ubicación en almacén" />
                                 <field name="has_serial_number" />
                                 <field
                                     name="serial_number_input"
@@ -422,6 +424,7 @@
                 <field name="product_mode" optional="show" />
                 <field name="supplier_partner_id" optional="hide" />
                 <field name="supplier_reference" optional="hide" />
+                <field name="stock_real_qty" string="Stock total" optional="show" />
                 <field name="stock_real_qty" string="Stock total" optional="show" />
                 <field
                     name="standard_price"
