@@ -94,6 +94,23 @@
             </field>
         </record>
 
+        <!-- =================================================================== -->
+        <!-- NUEVO RECORD: Añadir campos de facturación bajo el proyecto -->
+        <!-- =================================================================== -->
+        <record id="view_purchase_order_form_inherit_invoice_fields" model="ir.ui.view">
+            <field name="name">purchase.order.form.inherit.invoice.fields</field>
+            <field name="model">purchase.order</field>
+            <field name="inherit_id" ref="purchase.purchase_order_form"/>
+            <field name="arch" type="xml">
+                <!-- Buscamos el campo de Proyecto para ponerlos debajo -->
+                <xpath expr="//field[@name='project_id']" position="after">
+                    <field name="helpdesk_invoice_date"/>
+                    <field name="helpdesk_payment_reference"/>
+                    <field name="helpdesk_invoice_date_due"/>
+                </xpath>
+            </field>
+        </record>
+
         <!-- NUEVO RECORD: Búsqueda directa en la vista de PEDIDOS DE COMPRA confirmados -->
         <record id="view_purchase_order_search_inherit_serial" model="ir.ui.view">
             <field name="name">purchase.order.search.inherit.serial</field>
