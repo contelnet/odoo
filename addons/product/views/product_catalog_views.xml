@@ -73,7 +73,7 @@
                                 invisible="not has_imei"
                                 required="has_imei"
                             />
-                            <field name="property_stock_inventory" string="Ubicación en almacén" />
+                            <!-- <field name="property_stock_inventory" string="Ubicación en almacén" /> -->
                             <field name="has_serial_number" />
                             <field
                                 name="serial_number_input"
@@ -291,7 +291,7 @@
                                     invisible="not has_imei"
                                     required="has_imei"
                                 />
-                                <field name="property_stock_inventory" string="Ubicación en almacén" />
+                                <!-- <field name="property_stock_inventory" string="Ubicación en almacén" /> -->
                                 <field name="has_serial_number" />
                                 <field
                                     name="serial_number_input"

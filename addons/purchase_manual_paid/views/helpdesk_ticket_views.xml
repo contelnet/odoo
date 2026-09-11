@@ -1,16 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="view_helpdesk_ticket_form_inherit_html_desc" model="ir.ui.view">
-        <field name="name">helpdesk.ticket.form.inherit.html.desc</field>
-        <field name="model">helpdesk.ticket</field>
-        <field name="inherit_id" ref="helpdesk_mgmt.view_helpdesk_ticket_form_info"/>
-        <field name="arch" type="xml">
-            
-            <xpath expr="//field[@name='description']" position="attributes">
-                <attribute name="widget">html</attribute>
-                <attribute name="options">{'collaborative': true, 'resizable': true}</attribute>
-            </xpath>
-            
-        </field>
-    </record>
 </odoo>
