@@ -325,7 +325,7 @@
         <field name="name">res.partner.form.crm.unified</field>
         <field name="model">res.partner</field>
         <field name="arch" type="xml">
-            <form string="Partner" class="o_crm_partner_form o_crm_partner_unified_form">
+            <form string="Partner"> class="o_crm_partner_form o_crm_partner_unified_form">
                 <sheet>
                     <field name="is_company" invisible="1"/>
                     <group col="2">

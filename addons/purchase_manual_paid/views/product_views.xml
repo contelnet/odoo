@@ -47,5 +47,6 @@
             </xpath>
         </field>
     </record>
+    <!-- Forzar actualización-->
         
 </odoo>
