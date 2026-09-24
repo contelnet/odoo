@@ -60,102 +60,101 @@
                     <field name="is_company" invisible="1"/>
                     <field name="type" invisible="1"/>
 
+                    <!-- 1. Botón superior derecho (Nativo) -->
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_website" type="object" class="oe_stat_button" icon="fa-globe" invisible="not website">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Sitio Web</span>
+                            </div>
+                        </button>
+                    </div>
+
+                    <!-- 2. KPIs superiores auto-ajustables -->
+                    <div class="d-flex flex-wrap gap-2 mb-4 border-bottom pb-3">
+                        <div class="bg-light border rounded px-3 py-2 text-center flex-grow-1" style="min-width: 120px;">
+                            <div class="text-muted fw-bold mb-1">Casos activos</div>
+                            <field name="kpi_ticket_active_count" nolabel="1" class="fw-bold fs-5 text-primary"/>
+                        </div>
+                        <div class="bg-light border rounded px-3 py-2 text-center flex-grow-1" style="min-width: 120px;">
+                            <div class="text-muted fw-bold mb-1">Casos resueltos</div>
+                            <field name="kpi_ticket_done_count" nolabel="1" class="fw-bold fs-5 text-success"/>
+                        </div>
+                        <div class="bg-light border rounded px-3 py-2 text-center flex-grow-1" style="min-width: 120px;">
+                            <div class="text-muted fw-bold mb-1">Horas invertidas</div>
+                            <field name="kpi_ticket_done_hours" nolabel="1" class="fw-bold fs-5"/>
+                        </div>
+                        <div class="bg-light border rounded px-3 py-2 text-center flex-grow-1" style="min-width: 120px;">
+                            <div class="text-muted fw-bold mb-1">Dispositivos</div>
+                            <field name="contract_devices_summary" nolabel="1" class="fw-bold fs-6"/>
+                        </div>
+                    </div>
+
+                    <!-- 3. Cabecera principal (Inmune a los aplastamientos de las ventanas modales) -->
+                    <field name="image_1920" widget="image" class="oe_avatar" options="{'preview_image': 'avatar_128'}"/>
+                    <div class="oe_title">
+                        <label for="name" string="Nombre de cuenta"/>
+                        <h1>
+                            <field name="name" required="1" placeholder="Ej: DSI Soluciones Industriales"/>
+                        </h1>
+                        <group>
+                            <field name="email" string="Correo electrónico" placeholder="nombre@empresa.com"/>
+                            <field name="phone" string="Teléfono" placeholder="Ej: 628787560"/>
+                        </group>
+                    </div>
+
                     <notebook>
                         <page string="Resumen">
-                            <!-- Cabecera profesional con KPIs -->
-                            <div class="o_partner_header_panel" style="display: flex; align-items: flex-start; gap: 2rem; margin-bottom: 2rem; border-bottom: 1px solid #e0e0e0; padding-bottom: 1.5rem;">
-                                <field name="image_1920" widget="image" class="o_partner_avatar" options="{'preview_image': 'avatar_128'}" style="width: 110px; height: 110px; border-radius: 12px; object-fit: cover; box-shadow: 0 2px 8px #0001;"/>
-                                <div style="flex: 1 1 0; min-width: 0;">
-                                    <div style="font-size: 2.2rem; font-weight: 700; color: #222; word-break: break-word; white-space: normal; max-width: 100%; overflow-wrap: anywhere;">
-                                        <field name="name" string="Nombre de cuenta" required="1" placeholder="Ej: DSI Soluciones Industriales" nolabel="1"/>
-                                    </div>
-                                    <div style="font-size: 1.1rem; color: #666; margin-top: 0.2rem;">
-                                        <field name="email" string="Correo electrónico" placeholder="nombre@empresa.com" nolabel="1"/>
-                                    </div>
-                                    <div style="font-size: 1rem; color: #888; margin-top: 0.2rem;">
-                                        <field name="phone" string="Teléfono" placeholder="Ej: 628787560" nolabel="1"/>
-                                    </div>
-                                </div>
-                                <div style="margin-left: auto; display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-end;">
-                                    <button name="action_open_website" type="object" icon="fa-globe" string="Web" class="btn btn-outline-primary" title="Ir al sitio web" invisible="not website" style="margin-left: 0.5rem; margin-bottom: 0.5rem;"/>
-                                    <!-- KPIs visuales -->
-                                    <div class="o_partner_kpis" style="display: flex; gap: 1.2rem;">
-                                        <div style="background: #f8f9fa; border-radius: 8px; padding: 0.7rem 1.2rem; min-width: 110px; text-align: center; box-shadow: 0 1px 4px #0001;">
-                                            <div style="font-size: 1.1rem; color: #2a2a2a; font-weight: 600;">Casos activos</div>
-                                            <field name="kpi_ticket_active_count" readonly="1" nolabel="1"/>
-                                        </div>
-                                        <div style="background: #f8f9fa; border-radius: 8px; padding: 0.7rem 1.2rem; min-width: 110px; text-align: center; box-shadow: 0 1px 4px #0001;">
-                                            <div style="font-size: 1.1rem; color: #2a2a2a; font-weight: 600;">Casos resueltos</div>
-                                            <field name="kpi_ticket_done_count" readonly="1" nolabel="1"/>
-                                        </div>
-                                        <div style="background: #f8f9fa; border-radius: 8px; padding: 0.7rem 1.2rem; min-width: 110px; text-align: center; box-shadow: 0 1px 4px #0001;">
-                                            <div style="font-size: 1.1rem; color: #2a2a2a; font-weight: 600;">Horas invertidas</div>
-                                            <field name="kpi_ticket_done_hours" readonly="1" nolabel="1"/>
-                                        </div>
-                                        <div style="background: #f8f9fa; border-radius: 8px; padding: 0.7rem 1.2rem; min-width: 110px; text-align: center; box-shadow: 0 1px 4px #0001;">
-                                            <div style="font-size: 1.1rem; color: #2a2a2a; font-weight: 600;">Dispositivos</div>
-                                            <field name="contract_devices_summary" readonly="1" nolabel="1"/>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Paneles de información -->
-                            <div class="o_partner_panels" style="display: flex; flex-wrap: wrap; gap: 2rem; margin-bottom: 2rem;">
-                                <div style="flex: 1 1 320px; min-width: 320px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
-                                    <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Datos fiscales y generales</h3>
+                            <!-- 4. Agrupaciones Nativas (Pintan las cajas de entrada correctamente) -->
+                            <group>
+                                <group string="Datos fiscales y generales">
                                     <field name="vat" string="CIF" placeholder="Ej: B12345678"/>
                                     <field name="trade_name" string="Marca Comercial" placeholder="Ej: DSI"/>
                                     <field name="website" string="Sitio web" placeholder="www.ejemplo.com"/>
-                                </div>
-                                <div style="flex: 1 1 320px; min-width: 320px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
-                                    <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Relación y contacto principal</h3>
+                                </group>
+                                <group string="Relación y contacto principal">
                                     <field name="parent_id" string="Cuenta primaria" domain="[('is_company', '=', True), ('id', '!=', id)]" placeholder="Cuenta primaria" context="{'form_view_ref': 'crm.view_partner_form_crm_company'}"/>
                                     <field name="relationship_type_id" string="Tipo de relación"/>
                                     <field name="main_contact_id" string="Contacto principal" domain="[('parent_id', '=', id), ('type', '=', 'contact')]" placeholder="Contacto principal"/>
-                                </div>
-                                <div style="flex: 1 1 320px; min-width: 320px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
-                                    <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Privacidad y LOPD</h3>
+                                </group>
+                                <group string="Privacidad y LOPD">
                                     <field name="lopd_signed" string="LOPD firmada"/>
                                     <field name="lopd_document_id" string="Archivo LOPD" options="{'no_create': True, 'no_create_edit': True}" placeholder="Seleccionar archivo LOPD"/>
-                                    <button name="action_import_lopd_document" type="object" string="Adjuntar archivo LOPD" class="btn btn-outline-secondary" style="margin-top: 0.5rem;"/>
-                                </div>
-                            </div>
+                                    <button name="action_import_lopd_document" type="object" string="Adjuntar archivo LOPD" class="btn btn-secondary"/>
+                                </group>
+                            </group>
 
                             <!-- Dirección y mapa -->
-                            <div class="o_partner_address_panel" style="display: flex; flex-wrap: wrap; gap: 2rem; margin-bottom: 2rem;">
-                                <div style="flex: 2 1 400px; min-width: 320px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
-                                    <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Dirección principal</h3>
+                            <group string="Dirección principal">
+                                <group>
                                     <field name="available_location_ids" invisible="1"/>
                                     <field name="location_id" string="Ubicación" domain="[('id', 'in', available_location_ids)]" options="{'no_create': True}" placeholder="Selecciona una ubicación"/>
-                                    <field name="street" string="Calle" placeholder="Ej: C/ Asturias"/>
-                                    <field name="street_number" string="Número" placeholder="Ej: 21"/>
-                                    <field name="street2" string="Portal / Piso / Oficina" placeholder="Ej: Entresuelo B"/>
-                                    <field name="city" string="Ciudad" placeholder="Ej: Oviedo"/>
-                                    <field name="zip" string="Código postal" placeholder="Ej: 33001"/>
-                                    <field name="state_id" string="Estado o provincia" options="{'no_open': True, 'no_create': True}"/>
-                                    <field name="country_id" string="País o región" options="{'no_open': True, 'no_create': True}"/>
-                                    <field name="latitude" invisible="1"/>
-                                    <field name="longitude" invisible="1"/>
-                                    <button name="action_geocode_address" type="object" string="Actualizar" class="btn btn-outline-secondary" style="margin-top: 0.5rem;"/>
-                                </div>
-                                <div style="flex: 1 1 320px; min-width: 320px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001; display: flex; align-items: center; justify-content: center;">
+                                    <label for="street" string="Dirección"/>
+                                    <div class="o_address_format">
+                                        <field name="street" string="Calle" placeholder="Ej: C/ Asturias" class="o_address_street"/>
+                                        <field name="street_number" string="Número" placeholder="Ej: 21" class="o_address_street"/>
+                                        <field name="street2" string="Portal / Piso / Oficina" placeholder="Ej: Entresuelo B" class="o_address_street"/>
+                                        <field name="city" string="Ciudad" placeholder="Ej: Oviedo" class="o_address_city"/>
+                                        <field name="zip" string="Código postal" placeholder="Ej: 33001" class="o_address_zip"/>
+                                        <field name="state_id" string="Estado o provincia" class="o_address_state" options="{'no_open': True, 'no_create': True}"/>
+                                        <field name="country_id" string="País o región" class="o_address_country" options="{'no_open': True, 'no_create': True}"/>
+                                    </div>
+                                    <button name="action_geocode_address" type="object" string="Actualizar" class="btn btn-secondary mt-2"/>
+                                </group>
+                                <group>
                                     <field name="map_html" widget="html" nolabel="1"/>
-                                </div>
-                            </div>
+                                </group>
+                            </group>
 
                             <!-- Contactos -->
-                            <div class="o_partner_contacts_panel" style="background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001; margin-bottom: 2rem;">
-                                <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Contactos</h3>
-                                <field name="child_ids" mode="list,form" editable="bottom" domain="[('is_company', '=', False), ('type', '=', 'contact')]" context="{'default_parent_id': id, 'default_type': 'contact', 'default_is_company': False, 'form_view_ref': 'crm.view_partner_form_crm_person'}">
-                                    <list>
-                                        <field name="name" string="Nombre completo"/>
-                                        <field name="email" string="Correo electrónico"/>
-                                        <field name="phone" string="Teléfono"/>
-                                        <field name="mobile" string="Teléfono móvil"/>
-                                    </list>
-                                </field>
-                            </div>
+                            <separator string="Contactos"/>
+                            <field name="child_ids" mode="list,form" editable="bottom" domain="[('is_company', '=', False), ('type', '=', 'contact')]" context="{'default_parent_id': id, 'default_type': 'contact', 'default_is_company': False, 'form_view_ref': 'crm.view_partner_form_crm_person'}">
+                                <list>
+                                    <field name="name" string="Nombre completo"/>
+                                    <field name="email" string="Correo electrónico"/>
+                                    <field name="phone" string="Teléfono"/>
+                                    <field name="mobile" string="Teléfono móvil"/>
+                                </list>
+                            </field>
                         </page>
 
                         <page string="Facturación">
@@ -296,23 +295,20 @@
                             </group>
                         </page>
                         <page string="Servicio">
-                            <div class="o_partner_service_panel" style="display: flex; flex-wrap: wrap; gap: 2rem;">
-                                <div style="flex: 1 1 400px; min-width: 350px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
-                                    <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Casos activos</h3>
+                            <group>
+                                <group string="Casos activos">
                                     <field name="kpi_ticket_active_count" readonly="1" nolabel="1"/>
-                                </div>
-                                <div style="flex: 1 1 400px; min-width: 350px; background: #f8f9fa; border-radius: 10px; padding: 1.5rem; box-shadow: 0 1px 4px #0001;">
-                                    <h3 style="font-size: 1.1rem; font-weight: 600; color: #2a2a2a; margin-bottom: 1rem;">Casos resueltos</h3>
+                                </group>
+                                <group string="Casos resueltos">
                                     <field name="kpi_ticket_done_count" readonly="1" nolabel="1"/>
-                                    <div style="margin-top: 0.75rem; font-size: 0.95rem; color: #666;">
-                                        Horas invertidas: <field name="kpi_ticket_done_hours" readonly="1" nolabel="1"/>
-                                    </div>
-                                </div>
-                            </div>
+                                    <label for="kpi_ticket_done_hours" string="Horas invertidas"/>
+                                    <field name="kpi_ticket_done_hours" readonly="1" nolabel="1"/>
+                                </group>
+                            </group>
                         </page>
                         <page string="Archivos">
                             <group>
-                                <field name="notes"/>
+                                <field name="notes" nolabel="1" placeholder="Añade notas o archivos aquí..."/>
                             </group>
                         </page>
                     </notebook>

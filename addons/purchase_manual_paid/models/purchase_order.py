@@ -18,6 +18,13 @@ class PurchaseOrder(models.Model):
     helpdesk_payment_reference = fields.Char(string="Referencia de pago")
     helpdesk_invoice_date_due = fields.Date(string="Fecha de vencimiento")
 
+    # 🔥 CAMPO: Interruptor de confirmación automática 🔥
+    is_express_order = fields.Boolean(
+        string="Pedido Exprés", 
+        default=False,
+        help="Si está marcado, el pedido se confirmará automáticamente al guardar con líneas."
+    )
+
     @api.model
     def _name_search(self, name, domain=None, operator='ilike', limit=None, order=None):
         domain = domain or []
@@ -39,6 +46,20 @@ class PurchaseOrder(models.Model):
     def _onchange_order_line_canons(self):
         if self.env.context.get('skip_canon_recalc'):
             return
+
+        # 🔥 ESCUDO ANTI-REFRESCO: Si no hay necesidad matemática de hacer nada, huimos rápido.
+        has_canon_needs = False
+        has_automatic_canon = False
+        
+        for line in self.order_line:
+            if line.product_id:
+                if line.name and line.name.startswith("Canon aplicado"):
+                    has_automatic_canon = True
+                elif hasattr(line.product_id.product_tmpl_id, 'canon_amount') and line.product_id.product_tmpl_id.canon_amount > 0:
+                    has_canon_needs = True
+
+        if not has_canon_needs and not has_automatic_canon:
+            return # Salimos sin tocar la BBDD para no borrar tu Canon manual.
 
         canon_product = self.env['product.product'].search([('default_code', '=', 'CANON')], limit=1)
         if not canon_product:
@@ -69,6 +90,11 @@ class PurchaseOrder(models.Model):
         lines_to_remove = self.env['purchase.order.line']
         for line in self.order_line:
             if line.product_id.id == canon_product.id:
+                
+                # BLINDAJE: Ignoramos el manual
+                if not line.name or not line.name.startswith("Canon aplicado"):
+                    continue
+
                 price = 0.0
                 if line.name:
                     match = re.search(r'\((\d+(?:\.\d+)?)€\)', line.name)
@@ -79,11 +105,17 @@ class PurchaseOrder(models.Model):
                     price = line.price_unit
 
                 if price in canon_needs and canon_needs[price]['qty'] > 0:
-                    line.product_qty = canon_needs[price]['qty']
-                    line.price_unit = price 
-                    
+                    new_qty = canon_needs[price]['qty']
                     refs_str = ", ".join(sorted(canon_needs[price]['refs']))
-                    line.name = f"Canon aplicado [{refs_str}] ({price}€)"
+                    new_name = f"Canon aplicado [{refs_str}] ({price}€)"
+                    
+                    # SEGURO: Solo tocamos la línea si los valores han cambiado realmente
+                    if line.product_qty != new_qty:
+                        line.product_qty = new_qty
+                    if line.price_unit != price:
+                        line.price_unit = price 
+                    if line.name != new_name:
+                        line.name = new_name
                     
                     canon_needs[price]['qty'] = 0
                 else:
@@ -106,13 +138,6 @@ class PurchaseOrder(models.Model):
                 
         if new_lines:
             self.update({'order_line': new_lines})
-            
-        # 4. Asegurarnos a la fuerza de que el precio unitario se sobreescribe al salir
-        for line in self.order_line:
-            if line.product_id.id == canon_product.id and line.name:
-                match = re.search(r'\((\d+(?:\.\d+)?)€\)', line.name)
-                if match:
-                    line.price_unit = float(match.group(1))
 
     def _recalculate_canons(self):
         canon_product = self.env['product.product'].search([('default_code', '=', 'CANON')], limit=1)
@@ -134,6 +159,11 @@ class PurchaseOrder(models.Model):
                         
             existing_canon_lines = order.order_line.filtered(lambda l: l.product_id.id == canon_product.id)
             for c_line in existing_canon_lines:
+                
+                # BLINDAJE: Ignoramos el manual al guardar
+                if not c_line.name or not c_line.name.startswith("Canon aplicado"):
+                    continue
+
                 price = c_line.price_unit
                 if price in canon_needs and canon_needs[price] > 0:
                     if c_line.product_qty != canon_needs[price]:
@@ -167,6 +197,23 @@ class PurchaseOrder(models.Model):
                         line.product_id.product_tmpl_id.supplier_partner_id = order.partner_id.id
         return res
 
+    # 🔥 LÓGICA: Auto-confirmación del pedido exprés 🔥
+    @api.model_create_multi
+    def create(self, vals_list):
+        orders = super().create(vals_list)
+        for order in orders:
+            if order.is_express_order and order.state in ['draft', 'sent'] and order.order_line:
+                order.button_confirm()
+        return orders
+
+    def write(self, vals):
+        res = super().write(vals)
+        for order in self:
+            if order.is_express_order and order.state in ['draft', 'sent'] and order.order_line:
+                order.button_confirm()
+        return res
+
+    
 # ---------------------------------------------------------
 # 2. LÍNEAS DEL PEDIDO (Creación, Desglose Masivo y Borrado de Seriales)
 # ---------------------------------------------------------
@@ -180,25 +227,29 @@ class PurchaseOrderLine(models.Model):
         try:
             super()._compute_price_unit_and_date_planned_and_name()
         except AttributeError:
-            pass # Por si tu versión concreta de Odoo 18 vuelve a cambiar el nombre internamente
+            pass
             
-        # 2. Machacamos el precio del Canon
+        # 2. Machacamos el precio del Canon (Solo a los automáticos)
         for line in self:
             if line.product_id and line.product_id.default_code == 'CANON':
-                if line.name:
+                if line.name and line.name.startswith("Canon aplicado"):
                     match = re.search(r'\((\d+(?:\.\d+)?)€\)', line.name)
                     if match:
-                        line.price_unit = float(match.group(1))
+                        new_price = float(match.group(1))
+                        if line.price_unit != new_price:
+                            line.price_unit = new_price
 
     # 🔥 MARTILLO 2: El Plan B infalible. Si la interfaz gráfica intenta ponerlo a cero, lo forzamos al instante 🔥
     @api.onchange('product_qty', 'product_id', 'name')
     def _onchange_force_canon_price_ui(self):
         for line in self:
             if line.product_id and line.product_id.default_code == 'CANON':
-                if line.name:
+                if line.name and line.name.startswith("Canon aplicado"):
                     match = re.search(r'\((\d+(?:\.\d+)?)€\)', line.name)
                     if match:
-                        line.price_unit = float(match.group(1))
+                        new_price = float(match.group(1))
+                        if line.price_unit != new_price:
+                            line.price_unit = new_price
 
     serial_numbers = fields.Text(
         string='Números de Serie',
@@ -261,10 +312,12 @@ class PurchaseOrderLine(models.Model):
         
         # Refuerzo de guardado: Forzamos el precio otra vez al tocar la Base de Datos
         for line in lines:
-            if line.product_id.default_code == 'CANON' and line.name:
+            if line.product_id.default_code == 'CANON' and line.name and line.name.startswith("Canon aplicado"):
                 match = re.search(r'\((\d+(?:\.\d+)?)€\)', line.name)
                 if match:
-                    line.price_unit = float(match.group(1))
+                    new_price = float(match.group(1))
+                    if line.price_unit != new_price:
+                        line.price_unit = new_price
 
         lines._generar_lotes_automaticos()
         return lines

@@ -1648,10 +1648,7 @@ class Product(models.Model):
         if not lines:
             return self._empty_history_html(empty_message)
 
-        is_purchase_history = lines and lines[0]._name == "purchase.order.line"
-        if is_purchase_history:
-            return self._format_purchase_history_html(lines)
-
+        # Ignoramos la función separada para asegurar que el diseño aplica siempre
         show_variant_info = any(
             getattr(line.product_id.product_tmpl_id, "product_variant_count", 0) > 1
             for line in lines
@@ -1662,34 +1659,49 @@ class Product(models.Model):
         tax_total = 0.0
         grand_total = 0.0
         currency_label = ""
+        
         for line in lines:
+            # 1. SACAMOS LA REFERENCIA (order_ref) DEPENDIENDO SI ES COMPRA O VENTA
             if line._name == "purchase.order.line":
-                date_value = line.order_id.date_order
-                partner_name = line.partner_id.display_name
+                date_value = line.order_id.date_order or line.create_date
+                partner_name = line.order_id.partner_id.display_name # Corregido: antes apuntaba al contacto de la línea, no del pedido
                 quantity = line.product_qty
                 currency = line.currency_id or line.company_id.currency_id
+                order_ref = line.order_id.name # Aquí sacamos el P00041
             else:
-                date_value = line.order_id.date_order
+                date_value = line.order_id.date_order or line.create_date
                 partner_name = line.order_partner_id.display_name
                 quantity = line.product_uom_qty
                 currency = line.currency_id or line.company_id.currency_id
+                order_ref = line.order_id.name # Aquí sacamos el S00041
+
             subtotal = line.price_subtotal
             total = line.price_total
             tax_amount = total - subtotal
             subtotal_total += subtotal
             tax_total += tax_amount
             grand_total += total
-            date_label = date_value.strftime("%d/%m/%Y") if date_value else "Sin fecha"
+            
+            # 2. FECHA Y HORA COMPLETAS CON ZONA HORARIA LOCAL
+            if date_value:
+                date_local = fields.Datetime.context_timestamp(self, date_value)
+                date_label = date_local.strftime("%d/%m/%Y %H:%M:%S")
+            else:
+                date_label = "Sin fecha"
+                
             partner_label = escape(partner_name or "Sin contacto")
             currency_label = escape(currency.name or "")
+            order_ref_label = escape(order_ref or "")
+            
             variant_line = (
                 f"<strong>Variante:</strong> {escape(line.product_id.display_name or line.product_id.name or 'N/A')}<br/>"
-                if show_variant_info
-                else ""
+                if show_variant_info else ""
             )
+            
+            # 3. DIBUJAMOS LA VIÑETA INYECTANDO LA HORA Y LA REFERENCIA [P00041]
             items.append(
                 "<li class='mb-2'>"
-                f"<strong>{escape(date_label)}</strong> - {partner_label}<br/>"
+                f"<strong>{escape(date_label)}</strong> - <strong>[{order_ref_label}]</strong> - {partner_label}<br/>"
                 f"{variant_line}"
                 f"{quantity:.2f} x {line.price_unit:.2f} {currency_label}<br/>"
                 f"Base: {subtotal:.2f} {currency_label} | Impuesto: {tax_amount:.2f} {currency_label} | Total: {total:.2f} {currency_label}"
@@ -1705,6 +1717,7 @@ class Product(models.Model):
         )
         return f"{totals_html}<ul class='mb-0'>{''.join(items)}</ul>"
 
+        
     def _format_purchase_history_html(self, lines):
         if not lines:
             return self._empty_history_html("Sin compras registradas.")
@@ -1736,8 +1749,18 @@ class Product(models.Model):
                 continue
 
             order = order_lines[0].order_id
-            date_value = order.date_order
-            date_label = date_value.strftime("%d/%m/%Y") if date_value else "Sin fecha"
+            
+            # 1. FECHA Y HORA COMPLETAS (Ajustado a la zona horaria del usuario)
+            date_utc = order.date_order or order.create_date
+            if date_utc:
+                date_local = fields.Datetime.context_timestamp(self, date_utc)
+                date_label = date_local.strftime("%d/%m/%Y %H:%M:%S")
+            else:
+                date_label = "Sin fecha"
+                
+            # 2. REFERENCIA DEL PEDIDO (Ej: P00041)
+            order_ref = escape(order.name or "Borrador")
+
             partner_name = escape(order.partner_id.display_name or "Sin contacto")
 
             line_rows = []
@@ -1790,9 +1813,10 @@ class Product(models.Model):
             overall_tax += order_tax
             overall_total += order_total
 
+            # 3. INYECTAMOS LA REFERENCIA (order_ref) Y LA HORA EN EL ENCABEZADO DEL BLOQUE
             order_blocks.append(
                 "<div class='mb-3'>"
-                f"<strong>{escape(date_label)}</strong> - {partner_name}<br/>"
+                f"<strong>{date_label}</strong> - <strong>[{order_ref}]</strong> - {partner_name}<br/>"
                 f"<ul class='mb-2'>{''.join(line_rows)}</ul>"
                 f"<strong>Total base pedido:</strong> {order_base:.2f} {order_currency_label}"
                 f"<br/><strong>Total canon pedido:</strong> {order_canon:.2f} {order_currency_label}"
