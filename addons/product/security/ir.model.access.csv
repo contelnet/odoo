@@ -37,3 +37,4 @@ access_product_document_user,access_product_document_user,model_product_document
 access_update_product_attribute_value_manager,update.product.attribute.value,model_update_product_attribute_value,group_product_manager,1,1,1,0
 access_product_template_piece_user,product.template.piece user,model_product_template_piece,base.group_user,1,1,1,1
 access_product_template_serial_number_user,product.template.serial.number user,model_product_template_serial_number,base.group_user,1,1,1,1
+access_product_catalog_location,product.catalog.location,model_product_catalog_location,base.group_user,1,1,1,1

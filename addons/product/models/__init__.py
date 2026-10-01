@@ -34,3 +34,5 @@ from . import res_country_group
 from . import res_currency
 from . import res_partner
 from . import uom_uom
+# Añade esta línea a las que ya tengas
+from . import product_locations

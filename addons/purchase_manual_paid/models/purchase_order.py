@@ -25,6 +25,31 @@ class PurchaseOrder(models.Model):
         help="Si está marcado, el pedido se confirmará automáticamente al guardar con líneas."
     )
 
+    def write(self, vals):
+        res = super().write(vals)
+        for order in self:
+            if order.is_express_order and order.state in ['draft', 'sent'] and order.order_line:
+                order.button_confirm()
+        return res
+
+    # 🔥 PÉGALO EXACTAMENTE AQUÍ, al final de la clase PurchaseOrder 🔥
+    def action_create_invoice(self):
+        res = super(PurchaseOrder, self).action_create_invoice()
+        for order in self:
+            if order.invoice_ids:
+                draft_invoices = order.invoice_ids.filtered(lambda inv: inv.state == 'draft')
+                for inv in draft_invoices:
+                    vals_to_update = {}
+                    if order.helpdesk_invoice_date:
+                        vals_to_update['invoice_date'] = order.helpdesk_invoice_date
+                    if order.helpdesk_payment_reference:
+                        vals_to_update['payment_reference'] = order.helpdesk_payment_reference
+                    if order.helpdesk_invoice_date_due:
+                        vals_to_update['invoice_date_due'] = order.helpdesk_invoice_date_due
+                    if vals_to_update:
+                        inv.write(vals_to_update)
+        return res
+
     @api.model
     def _name_search(self, name, domain=None, operator='ilike', limit=None, order=None):
         domain = domain or []
@@ -193,8 +218,22 @@ class PurchaseOrder(models.Model):
         for order in self:
             if order.partner_id:
                 for line in order.order_line:
-                    if line.product_id and line.product_id.product_tmpl_id:
-                        line.product_id.product_tmpl_id.supplier_partner_id = order.partner_id.id
+                    if line.product_id and line.price_unit > 0:
+                        
+                        # 1. Asignar proveedor al producto
+                        if line.product_id.product_tmpl_id:
+                            line.product_id.product_tmpl_id.supplier_partner_id = order.partner_id.id
+                        
+                        # 🔥 2. ATAQUE TRIPLE AL COSTE 🔥
+                        # Cargamos la Variante y la Plantilla con la empresa actual forzada
+                        prod_v = line.product_id.with_company(order.company_id).sudo()
+                        prod_t = line.product_id.product_tmpl_id.with_company(order.company_id).sudo()
+                        
+                        # Asignamos el precio directamente en lugar de usar write()
+                        prod_v.standard_price = line.price_unit
+                        if prod_t:
+                            prod_t.standard_price = line.price_unit
+                            
         return res
 
     # 🔥 LÓGICA: Auto-confirmación del pedido exprés 🔥

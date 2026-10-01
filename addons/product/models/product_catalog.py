@@ -11,8 +11,6 @@ class Product(models.Model):
 
     def _setup_complete(self):
         res = super()._setup_complete()
-        # Forzar desde módulo product que no se valide compañía en este campo
-        # cuando lo añade el módulo helpdesk_product.
         helpdesk_location_field = self._fields.get("helpdesk_location_id")
         if helpdesk_location_field:
             helpdesk_location_field.check_company = False
@@ -20,11 +18,6 @@ class Product(models.Model):
 
     @api.model
     def _get_missing_comodel_fields(self, field_names=None):
-        """Devuelve campos relacionales cuyo comodel no existe en el registro.
-
-        Evita errores tipo:
-        AttributeError: '_unknown' object has no attribute 'id'
-        """
         candidate_names = field_names or list(self._fields.keys())
         missing = set()
         for name in candidate_names:
@@ -38,15 +31,31 @@ class Product(models.Model):
 
     def read(self, fields=None, load="_classic_read"):
         missing_fields = self._get_missing_comodel_fields(fields)
-        if not missing_fields:
-            return super().read(fields=fields, load=load)
-
+        
+        # Leemos con normalidad pero asegurando que stock_location_id no devuelva un fantasma _unknown
         safe_fields = [f for f in (fields or list(self._fields.keys())) if f not in missing_fields]
         values_list = super().read(fields=safe_fields, load=load)
+
         for vals in values_list:
+            # Saneo preventivo para stock_location_id si trae un objeto inválido o fantasma
+            if "stock_location_id" in vals:
+                loc_val = vals.get("stock_location_id")
+                if loc_val:
+                    # Si es una tupla [id, name] del tipo Many2one de Odoo y el nombre es extraño o da error
+                    if isinstance(loc_val, (list, tuple)) and len(loc_val) > 0:
+                        loc_id = loc_val[0]
+                        # Comprobamos si el registro existe de verdad en stock.location
+                        real_loc = self.env["stock.location"].browse(loc_id).exists()
+                        if not real_loc:
+                            vals["stock_location_id"] = False
+                    elif hasattr(loc_val, "_name") and loc_val._name == "_unknown":
+                        vals["stock_location_id"] = False
+
             for field_name in missing_fields:
-                field = self._fields[field_name]
-                vals[field_name] = False if field.type == "many2one" else []
+                if field_name in self._fields:
+                    field = self._fields[field_name]
+                    vals[field_name] = False if field.type == "many2one" else []
+                    
         return values_list
 
     @api.model
@@ -60,7 +69,6 @@ class Product(models.Model):
             ("company_id", "=", self.env.company.id),
         ]
 
-        # Coincidencia exacta solicitada: "21 % V" / "21 % C".
         exact_name = "21 % V" if tax_use == "sale" else "21 % C"
         exact_tax = Tax.search(
             [
@@ -76,7 +84,6 @@ class Product(models.Model):
         if exact_tax:
             return exact_tax
 
-        # Prioridad por nombre lógico: 21%V / 21%C (ignorando espacios y mayúsculas).
         tax_name = "21%V" if tax_use == "sale" else "21%C"
         candidates = Tax.search(
             [
@@ -108,8 +115,6 @@ class Product(models.Model):
     @api.model
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
-        # Impuestos se asignan vía default=lambda en los campos y en create()
-        # No manipular aquí para evitar conflictos con registros _unknown
         return res
 
     @api.model
@@ -131,11 +136,6 @@ class Product(models.Model):
         return bool(model and getattr(model, "_name", None) == model_name)
 
     def init(self):
-        """
-
-        Evita errores `UndefinedColumn` al cargar `product.template`/`product.product`
-        cuando existen campos nuevos en código pero aún no en la tabla SQL.
-        """
         self.env.cr.execute(
             """
             ALTER TABLE product_template
@@ -153,7 +153,7 @@ class Product(models.Model):
                 ADD COLUMN IF NOT EXISTS serial_number_input varchar,
                 ADD COLUMN IF NOT EXISTS supplier_partner_id integer,
                 ADD COLUMN IF NOT EXISTS supplier_reference text,
-                ADD COLUMN IF NOT EXISTS stock_location_id integer,
+                ADD COLUMN IF NOT EXISTS stock_location_id integer,                
                 ADD COLUMN IF NOT EXISTS stock_initial_qty numeric,
                 ADD COLUMN IF NOT EXISTS stock_initial_applied_qty numeric,
                 ADD COLUMN IF NOT EXISTS stock_initial_locked boolean,
@@ -226,7 +226,7 @@ class Product(models.Model):
             UPDATE product_template
                SET stock_initial_locked = FALSE
              WHERE stock_initial_locked IS NULL
-            """ 
+            """
         )
         self.env.cr.execute(
             """
@@ -298,9 +298,7 @@ class Product(models.Model):
         currency_field="currency_id",
         compute="_compute_piece_total_price",
     )
-    serial_number_input = fields.Char(
-        string="Numero de serie",
-    )
+    serial_number_input = fields.Char(string="Numero de serie")
     serial_number_ids = fields.One2many(
         comodel_name="product.template.serial.number",
         inverse_name="product_tmpl_id",
@@ -315,15 +313,25 @@ class Product(models.Model):
         string="Proveedor",
         domain=[("is_company", "=", True)],
     )
-    supplier_reference = fields.Text(
-        string="Referencia externa proveedor",
+    supplier_reference = fields.Text(string="Referencia externa proveedor")
+
+    stock_location_id = fields.Many2one(
+        comodel_name="stock.location",
+        string="Ubicación en sistema",
+        domain="[('usage', '=', 'internal')]",
+        help="Ubicación logística principal en el inventario.",
     )
+
+    location_notes = fields.Char(
+        string="Estante / Cajón",
+        help="Ubicación física exacta en el almacén (Ej: Pasillo 3, Cajón B).",
+    )
+
     stock_qty = fields.Float(
         string="Stock",
         compute="_compute_stock_qty",
         digits="Product Unit of Measure",
         readonly=True,
-        help="Stock disponible calculado por movimientos de inventario (compras/entradas/salidas).",
     )
     stock_real_qty = fields.Float(
         string="Stock real total",
@@ -349,7 +357,7 @@ class Product(models.Model):
         compute="_compute_stock_activity_summary",
         readonly=True,
     )
-    
+
     service_sales_count = fields.Float(
         string="Contador de Ventas",
         compute="_compute_service_sales_count",
@@ -369,7 +377,6 @@ class Product(models.Model):
         ],
         string="Periodo",
         default="today",
-        help="Periodo de análisis para entradas/salidas mostradas en el panel de inventario.",
     )
     stock_initial_qty = fields.Float(
         string="Stock inicial",
@@ -405,13 +412,19 @@ class Product(models.Model):
         readonly=True,
         copy=False,
     )
-    stock_location_id = fields.Many2one(
-        comodel_name="stock.location",
-        string="Ubicacion",
-        domain="[]",
-        default=False,
-        check_company=False,
+
+    catalog_location_id = fields.Many2one(
+        comodel_name="product.catalog.location",
+        string="Estante / Cajón",
+        help="Selecciona o crea la ubicación física exacta en el almacén.",
     )
+
+    stock_quant_html = fields.Html(
+        string="Desglose por ubicaciones",
+        compute="_compute_stock_quant_html",
+        sanitize=False,
+    )
+
     purchase_history_html = fields.Html(
         string="Historial de compras",
         compute="_compute_histories",
@@ -425,7 +438,9 @@ class Product(models.Model):
 
     @api.model
     def _default_stock_location_id(self):
-        if not self._is_model_available("stock.warehouse") or not self._is_model_available("stock.location"):
+        if not self._is_model_available(
+            "stock.warehouse"
+        ) or not self._is_model_available("stock.location"):
             return False
         warehouse = self.env["stock.warehouse"].search(
             [("company_id", "=", self.env.company.id)], limit=1
@@ -444,11 +459,12 @@ class Product(models.Model):
 
     def _get_stock_location(self):
         self.ensure_one()
-        location = self.stock_location_id
-        if self._is_valid_stock_location_record(location):
-            return location
         fallback_location = self._default_stock_location_id()
-        return fallback_location if self._is_valid_stock_location_record(fallback_location) else False
+        return (
+            fallback_location
+            if self._is_valid_stock_location_record(fallback_location)
+            else False
+        )
 
     @api.model
     def _get_positive_rounding(self, rounding_value):
@@ -486,7 +502,6 @@ class Product(models.Model):
 
     @api.model
     def _get_available_quantity_safe(self, quant_model, variant, location):
-        """Cantidad disponible robusta ante UoM mal configuradas (rounding <= 0)."""
         if not variant or not self._is_valid_stock_location_record(location):
             return 0.0
         try:
@@ -499,7 +514,8 @@ class Product(models.Model):
                 ]
             )
             return sum(
-                (quant.quantity or 0.0) - (getattr(quant, "reserved_quantity", 0.0) or 0.0)
+                (quant.quantity or 0.0)
+                - (getattr(quant, "reserved_quantity", 0.0) or 0.0)
                 for quant in quants
             )
 
@@ -515,7 +531,9 @@ class Product(models.Model):
 
     def _compute_has_serial_number(self):
         for product in self:
-            tracking_value = product.tracking if "tracking" in product._fields else "none"
+            tracking_value = (
+                product.tracking if "tracking" in product._fields else "none"
+            )
             product.has_serial_number = tracking_value == "serial"
 
     @api.depends("serial_number_ids")
@@ -533,9 +551,13 @@ class Product(models.Model):
     def _compute_piece_total_price(self):
         for product in self:
             product.piece_total_price = sum(product.piece_ids.mapped("price_unit"))
-            product.piece_sale_total_price = sum(product.piece_ids.mapped("sale_price_unit"))
+            product.piece_sale_total_price = sum(
+                product.piece_ids.mapped("sale_price_unit")
+            )
 
-    @api.onchange("product_mode", "piece_ids", "piece_ids.price_unit", "piece_ids.sale_price_unit")
+    @api.onchange(
+        "product_mode", "piece_ids", "piece_ids.price_unit", "piece_ids.sale_price_unit"
+    )
     def _onchange_piece_prices(self):
         self._apply_piece_total_price()
 
@@ -613,14 +635,18 @@ class Product(models.Model):
             if callable(internal_qty_method):
                 product.stock_real_qty = float(internal_qty_method() or 0.0)
             else:
-                product.stock_real_qty = float(getattr(variant, "qty_available", 0.0) or 0.0)
+                product.stock_real_qty = float(
+                    getattr(variant, "qty_available", 0.0) or 0.0
+                )
 
     @api.depends("product_business_type", "product_variant_ids")
     def _compute_service_sales_count(self):
         has_sale_line = self._is_model_available("sale.order.line")
         has_ot_line = self._is_model_available("helpdesk.ticket.ot.product.line")
         SaleOrderLine = self.env["sale.order.line"].sudo() if has_sale_line else False
-        OTLine = self.env["helpdesk.ticket.ot.product.line"].sudo() if has_ot_line else False
+        OTLine = (
+            self.env["helpdesk.ticket.ot.product.line"].sudo() if has_ot_line else False
+        )
 
         for product in self:
             product.service_sales_count = 0.0
@@ -632,7 +658,6 @@ class Product(models.Model):
                 continue
 
             total_qty = 0.0
-
             if has_sale_line:
                 sale_lines = SaleOrderLine.search(
                     [
@@ -668,7 +693,11 @@ class Product(models.Model):
             product.stock_last_move_at = False
             product.stock_last_move_ref = False
 
-            if not has_move_line or not product.id or not product._is_product_storable_for_stock():
+            if (
+                not has_move_line
+                or not product.id
+                or not product._is_product_storable_for_stock()
+            ):
                 continue
 
             period = product.stock_activity_period or "today"
@@ -680,7 +709,9 @@ class Product(models.Model):
                 start_date = today
 
             start_dt = fields.Datetime.to_datetime(f"{start_date} 00:00:00")
-            end_dt = fields.Datetime.to_datetime(f"{today} 23:59:59") + timedelta(seconds=1)
+            end_dt = fields.Datetime.to_datetime(f"{today} 23:59:59") + timedelta(
+                seconds=1
+            )
 
             variant = product.product_variant_id
             day_lines = MoveLine.search(
@@ -703,7 +734,9 @@ class Product(models.Model):
                 if qty <= 0.0:
                     continue
                 src_internal = getattr(line.location_id, "usage", None) == "internal"
-                dst_internal = getattr(line.location_dest_id, "usage", None) == "internal"
+                dst_internal = (
+                    getattr(line.location_dest_id, "usage", None) == "internal"
+                )
                 if dst_internal and not src_internal:
                     entries += qty
                 elif src_internal and not dst_internal:
@@ -717,13 +750,22 @@ class Product(models.Model):
                 order="date desc, id desc",
                 limit=1,
             )
+
             product.stock_in_today_qty = entries
             product.stock_out_today_qty = exits
             product.stock_last_move_at = last_line.date if last_line else False
             product.stock_last_move_ref = (
                 last_line.reference
-                or (last_line.move_id.reference if last_line and last_line.move_id else False)
-                or (last_line.picking_id.name if last_line and last_line.picking_id else False)
+                or (
+                    last_line.move_id.reference
+                    if last_line and last_line.move_id
+                    else False
+                )
+                or (
+                    last_line.picking_id.name
+                    if last_line and last_line.picking_id
+                    else False
+                )
             )
 
     @api.depends("stock_qty", "stock_location_id", "type")
@@ -746,11 +788,15 @@ class Product(models.Model):
             precision_rounding = product._get_positive_rounding(
                 getattr(variant.uom_id, "rounding", None)
             )
-            real_qty = product._get_available_quantity_safe(quant_model, variant, location)
+            real_qty = product._get_available_quantity_safe(
+                quant_model, variant, location
+            )
             target_qty = float(product.stock_qty or 0.0)
             product.stock_sync_status = (
                 "synced"
-                if float_is_zero(target_qty - real_qty, precision_rounding=precision_rounding)
+                if float_is_zero(
+                    target_qty - real_qty, precision_rounding=precision_rounding
+                )
                 else "pending"
             )
 
@@ -769,24 +815,21 @@ class Product(models.Model):
             )
             product._validate_target_stock_quantity(target_qty, precision_rounding)
             product._ensure_stock_tracking_enabled()
-
             current_qty = product._get_available_quantity_safe(
-                quant_model,
-                variant,
-                location,
+                quant_model, variant, location
             )
             delta_qty = target_qty - current_qty
             if float_is_zero(delta_qty, precision_rounding=precision_rounding):
                 continue
-            quant_model._update_available_quantity(variant, location, quantity=delta_qty)
+            quant_model._update_available_quantity(
+                variant, location, quantity=delta_qty
+            )
             product.stock_last_synced_at = fields.Datetime.now()
 
     def _validate_target_stock_quantity(self, target_qty, precision_rounding):
         tracking_value = self.tracking if "tracking" in self._fields else "none"
         if tracking_value == "serial" and float_compare(
-            target_qty,
-            round(target_qty),
-            precision_rounding=precision_rounding,
+            target_qty, round(target_qty), precision_rounding=precision_rounding
         ):
             raise ValidationError(
                 _("Los productos con numero de serie solo admiten cantidades enteras.")
@@ -802,11 +845,12 @@ class Product(models.Model):
                 continue
             variant = product._get_single_variant()
             target_initial_qty = float(product.stock_initial_qty or 0.0)
-            # Obtener precision_rounding seguro
             precision_rounding = product._get_positive_rounding(
                 getattr(variant.uom_id, "rounding", None)
             )
-            product._validate_target_stock_quantity(target_initial_qty, precision_rounding)
+            product._validate_target_stock_quantity(
+                target_initial_qty, precision_rounding
+            )
             product._ensure_stock_tracking_enabled()
 
             previous_applied = float(product.stock_initial_applied_qty or 0.0)
@@ -822,14 +866,17 @@ class Product(models.Model):
             delta_qty = target_initial_qty - previous_applied
             if float_is_zero(delta_qty, precision_rounding=precision_rounding):
                 continue
-            quant_model._update_available_quantity(variant, location, quantity=delta_qty)
+            quant_model._update_available_quantity(
+                variant, location, quantity=delta_qty
+            )
             product.stock_initial_applied_qty = target_initial_qty
-            if not float_is_zero(target_initial_qty, precision_rounding=precision_rounding):
+            if not float_is_zero(
+                target_initial_qty, precision_rounding=precision_rounding
+            ):
                 product.stock_initial_locked = True
             product.stock_last_synced_at = fields.Datetime.now()
 
     def _apply_stock_sync_from_values(self, vals):
-        """Sincroniza inventario cuando el formulario envía campos de stock."""
         if not vals:
             return
         if "stock_initial_qty" in vals:
@@ -840,7 +887,10 @@ class Product(models.Model):
         vals = dict(vals or {})
         if "stock_location_id" not in vals:
             vals["stock_location_id"] = False
-        if "helpdesk_location_id" in self._fields and "helpdesk_location_id" not in vals:
+        if (
+            "helpdesk_location_id" in self._fields
+            and "helpdesk_location_id" not in vals
+        ):
             vals["helpdesk_location_id"] = False
         if "route_ids" in self._fields and "route_ids" not in vals:
             vals["route_ids"] = [(5, 0, 0)]
@@ -852,7 +902,9 @@ class Product(models.Model):
             raise ValidationError(_("El módulo de Inventario no está disponible."))
         action = self.env.ref("stock.quantsact", raise_if_not_found=False)
         if not action:
-            raise ValidationError(_("No se ha encontrado la acción de inventario de quants."))
+            raise ValidationError(
+                _("No se ha encontrado la acción de inventario de quants.")
+            )
 
         return {
             **action.read()[0],
@@ -868,7 +920,9 @@ class Product(models.Model):
         if not self.supplier_partner_id:
             return False
 
-        currency = self.cost_currency_id or self.currency_id or self.env.company.currency_id
+        currency = (
+            self.cost_currency_id or self.currency_id or self.env.company.currency_id
+        )
         return {
             "partner_id": self.supplier_partner_id.id,
             "product_tmpl_id": self.id,
@@ -890,11 +944,13 @@ class Product(models.Model):
 
         supplierinfo_model = self.env["product.supplierinfo"].sudo()
         for product in self:
-            quick_lines = supplierinfo_model.search([
-                ("product_tmpl_id", "=", product.id),
-                ("product_id", "=", False),
-                ("is_catalog_quick_supplier", "=", True),
-            ])
+            quick_lines = supplierinfo_model.search(
+                [
+                    ("product_tmpl_id", "=", product.id),
+                    ("product_id", "=", False),
+                    ("is_catalog_quick_supplier", "=", True),
+                ]
+            )
 
             if not product.supplier_partner_id:
                 if quick_lines:
@@ -907,11 +963,14 @@ class Product(models.Model):
             )[:1]
 
             if not target_line:
-                target_line = supplierinfo_model.search([
-                    ("product_tmpl_id", "=", product.id),
-                    ("product_id", "=", False),
-                    ("partner_id", "=", product.supplier_partner_id.id),
-                ], limit=1)
+                target_line = supplierinfo_model.search(
+                    [
+                        ("product_tmpl_id", "=", product.id),
+                        ("product_id", "=", False),
+                        ("partner_id", "=", product.supplier_partner_id.id),
+                    ],
+                    limit=1,
+                )
 
             if target_line:
                 target_line.write(supplier_vals)
@@ -924,7 +983,6 @@ class Product(models.Model):
 
     @api.model
     def _extract_tax_ids_from_m2m_value(self, raw_value):
-        """Extrae IDs válidos de un valor M2M (ids/comandos) de forma robusta."""
         if not raw_value:
             return [], False
 
@@ -932,38 +990,39 @@ class Product(models.Model):
         explicit_clear = False
 
         if hasattr(raw_value, "ids"):
-            valid_ids.extend([rid for rid in raw_value.ids if isinstance(rid, int) and rid > 0])
+            valid_ids.extend(
+                [rid for rid in raw_value.ids if isinstance(rid, int) and rid > 0]
+            )
             return list(dict.fromkeys(valid_ids)), False
 
         if isinstance(raw_value, dict):
             explicit_clear = str(
-                raw_value.get("operation")
-                or raw_value.get("op")
-                or ""
+                raw_value.get("operation") or raw_value.get("op") or ""
             ).upper() in ("CLEAR", "DELETE_ALL")
-            ids_payload = raw_value.get("ids") or raw_value.get("resIds") or raw_value.get("res_ids")
+            ids_payload = (
+                raw_value.get("ids")
+                or raw_value.get("resIds")
+                or raw_value.get("res_ids")
+            )
             if isinstance(ids_payload, (list, tuple)):
                 for record_id in ids_payload:
                     normalized_id = self._normalize_relational_id(record_id)
                     if normalized_id:
                         valid_ids.append(normalized_id)
             normalized_single_id = self._normalize_relational_id(
-                raw_value.get("id")
-                or raw_value.get("resId")
-                or raw_value.get("res_id")
+                raw_value.get("id") or raw_value.get("resId") or raw_value.get("res_id")
             )
             if normalized_single_id:
                 valid_ids.append(normalized_single_id)
             return list(dict.fromkeys(valid_ids)), explicit_clear
 
-        if (
-            isinstance(raw_value, tuple)
-            and raw_value
-            and isinstance(raw_value[0], int)
-        ):
+        if isinstance(raw_value, tuple) and raw_value and isinstance(raw_value[0], int):
             commands = [raw_value]
         else:
-            commands = raw_value if isinstance(raw_value, (list, tuple)) else [raw_value]
+            commands = (
+                raw_value if isinstance(raw_value, (list, tuple)) else [raw_value]
+            )
+
         for cmd in commands:
             if hasattr(cmd, "id"):
                 if isinstance(cmd.id, int) and cmd.id > 0:
@@ -1013,7 +1072,11 @@ class Product(models.Model):
                 if normalized_type in ("CLEAR", "DELETE_ALL"):
                     explicit_clear = True
                     continue
-                if normalized_type == "SET" and len(cmd) >= 2 and isinstance(cmd[1], (list, tuple)):
+                if (
+                    normalized_type == "SET"
+                    and len(cmd) >= 2
+                    and isinstance(cmd[1], (list, tuple))
+                ):
                     if len(cmd[1]) == 0:
                         explicit_clear = True
                     for record_id in cmd[1]:
@@ -1042,7 +1105,11 @@ class Product(models.Model):
                         valid_ids.append(record_id)
                 continue
 
-            if command_type == 6 and len(cmd) >= 3 and isinstance(cmd[2], (list, tuple)):
+            if (
+                command_type == 6
+                and len(cmd) >= 3
+                and isinstance(cmd[2], (list, tuple))
+            ):
                 if len(cmd[2]) == 0:
                     explicit_clear = True
                 for record_id in cmd[2]:
@@ -1057,28 +1124,26 @@ class Product(models.Model):
 
     @api.model
     def _sanitize_tax_ids(self, tax_ids, tax_use):
-        """Filtra IDs de impuestos para evitar guardar tipos incorrectos o registros inexistentes."""
         if not tax_ids or not self._is_model_available("account.tax"):
             return []
-
         taxes = self.env["account.tax"].browse(tax_ids).exists()
         allowed_companies = self.env.companies
         taxes = taxes.filtered(
-            lambda tax: tax.type_tax_use == tax_use
-            and (
-                not tax.company_id
-                or tax.company_id in allowed_companies
-                or tax.company_id == self.env.company
+            lambda tax: (
+                tax.type_tax_use == tax_use
+                and (
+                    not tax.company_id
+                    or tax.company_id in allowed_companies
+                    or tax.company_id == self.env.company
+                )
             )
         )
         return taxes.ids
 
     @api.model
     def _extract_tax_labels_from_m2m_value(self, raw_value):
-        """Extrae nombres/labels de impuestos cuando el cliente web no envía IDs."""
         if raw_value in (False, None):
             return []
-
         labels = []
 
         def _append_label(value):
@@ -1091,7 +1156,11 @@ class Product(models.Model):
         if isinstance(raw_value, dict):
             for key in ("label", "display_name", "name", "value"):
                 _append_label(raw_value.get(key))
-            nested_values = raw_value.get("values") or raw_value.get("records") or raw_value.get("data")
+            nested_values = (
+                raw_value.get("values")
+                or raw_value.get("records")
+                or raw_value.get("data")
+            )
             if isinstance(nested_values, (list, tuple)):
                 for item in nested_values:
                     for nested_label in self._extract_tax_labels_from_m2m_value(item):
@@ -1118,7 +1187,6 @@ class Product(models.Model):
     def _resolve_tax_ids_from_labels(self, labels, tax_use):
         if not labels or not self._is_model_available("account.tax"):
             return []
-
         normalized_labels = []
         seen = set()
         for label in labels:
@@ -1130,13 +1198,16 @@ class Product(models.Model):
             return []
 
         allowed_companies = self.env.companies
-        taxes = self.env["account.tax"].search([
-            ("type_tax_use", "=", tax_use),
-            ("name", "in", normalized_labels),
-            "|",
-            ("company_id", "=", False),
-            ("company_id", "in", allowed_companies.ids),
-        ], order="sequence, id")
+        taxes = self.env["account.tax"].search(
+            [
+                ("type_tax_use", "=", tax_use),
+                ("name", "in", normalized_labels),
+                "|",
+                ("company_id", "=", False),
+                ("company_id", "in", allowed_companies.ids),
+            ],
+            order="sequence, id",
+        )
 
         matched_ids = []
         for label in normalized_labels:
@@ -1147,16 +1218,8 @@ class Product(models.Model):
 
     @api.model
     def _prepare_tax_m2m_write_value(self, raw_value, tax_use):
-        """Normaliza payloads M2M de impuestos para create/write.
-
-        Devuelve una tupla ``(should_write, value)``:
-        - should_write=True + value=[(6, 0, ids)] para set explícito
-        - should_write=True + value=False para borrado explícito
-        - should_write=False cuando el payload es ruido/ambigüo y debe conservarse el valor actual
-        """
         if raw_value in (False, None):
             return True, False
-
         if isinstance(raw_value, (list, tuple)) and not raw_value:
             return False, None
 
@@ -1186,47 +1249,39 @@ class Product(models.Model):
     def _normalize_relational_id(self, raw_value):
         if raw_value in (False, None):
             return False
-
         if isinstance(raw_value, dict):
-            ids_payload = raw_value.get("ids") or raw_value.get("resIds") or raw_value.get("res_ids")
+            ids_payload = (
+                raw_value.get("ids")
+                or raw_value.get("resIds")
+                or raw_value.get("res_ids")
+            )
             if isinstance(ids_payload, (list, tuple)) and ids_payload:
                 return self._normalize_relational_id(ids_payload[0])
-            raw_value = raw_value.get("id") or raw_value.get("resId") or raw_value.get("res_id")
+            raw_value = (
+                raw_value.get("id") or raw_value.get("resId") or raw_value.get("res_id")
+            )
 
         if hasattr(raw_value, "id"):
             raw_value = raw_value.id
-
         if isinstance(raw_value, str) and raw_value.isdigit():
             raw_value = int(raw_value)
-
         if isinstance(raw_value, int) and raw_value > 0:
             return raw_value
-
         return False
 
     @api.model
     def _normalize_many2one_input_value(self, raw_value):
-        """Normaliza valores habituales del cliente web para campos many2one.
-
-        Acepta enteros, recordsets de un registro o pares `[id, display_name]`.
-        Si no reconoce el formato, devuelve el valor original para que el ORM lo procese.
-        """
         if raw_value in (False, None):
             return False
-
         if isinstance(raw_value, int):
             return raw_value
-
         if isinstance(raw_value, str) and raw_value.isdigit():
             return int(raw_value)
-
         if isinstance(raw_value, dict):
             normalized_id = self._normalize_relational_id(raw_value)
             return normalized_id if normalized_id else raw_value
-
         if hasattr(raw_value, "id"):
             return raw_value.id or False
-
         if isinstance(raw_value, (list, tuple)):
             if not raw_value:
                 return False
@@ -1240,56 +1295,64 @@ class Product(models.Model):
                 return int(first)
             if isinstance(first, int) and first > 0:
                 return first
-
         return raw_value
 
     def _compute_histories(self):
         has_purchase_model = self._is_model_available("purchase.order.line")
         has_sale_model = self._is_model_available("sale.order.line")
-        purchase_lines_model = self.env["purchase.order.line"].sudo() if has_purchase_model else False
-        sale_lines_model = self.env["sale.order.line"].sudo() if has_sale_model else False
+        purchase_lines_model = (
+            self.env["purchase.order.line"].sudo() if has_purchase_model else False
+        )
+        sale_lines_model = (
+            self.env["sale.order.line"].sudo() if has_sale_model else False
+        )
+
         for product in self:
             if not product.id:
-                product.purchase_history_html = product._empty_history_html("Sin compras registradas.")
-                product.sale_history_html = product._empty_history_html("Sin ventas registradas.")
+                product.purchase_history_html = product._empty_history_html(
+                    "Sin compras registradas."
+                )
+                product.sale_history_html = product._empty_history_html(
+                    "Sin ventas registradas."
+                )
                 continue
+
             if has_purchase_model:
-                purchase_anchor_lines = purchase_lines_model.search(
+                purchase_lines = purchase_lines_model.search(
                     [
                         ("product_id.product_tmpl_id", "=", product.id),
                         ("display_type", "=", False),
-                        ("state", "in", ("draft", "sent", "to approve", "purchase", "done", "cancel")),
+                        (
+                            "state",
+                            "in",
+                            (
+                                "draft",
+                                "sent",
+                                "to approve",
+                                "purchase",
+                                "done",
+                                "cancel",
+                            ),
+                        ),
                     ],
                     order="id desc",
                     limit=80,
                 )
-
-                purchase_orders = purchase_anchor_lines.mapped("order_id").sorted(
-                    key=lambda order: (order.date_order or fields.Datetime.from_string("1970-01-01 00:00:00"), order.id),
-                    reverse=True,
-                )[:10]
-
-                purchase_lines = purchase_lines_model.search(
-                    [
-                        ("order_id", "in", purchase_orders.ids),
-                        ("display_type", "=", False),
-                    ],
-                    order="id desc",
-                    limit=300,
-                ).sorted(
+                purchase_lines = purchase_lines.sorted(
                     key=lambda line: (
-                        line.order_id.date_order or fields.Datetime.from_string("1970-01-01 00:00:00"),
-                        line.order_id.id,
+                        line.order_id.date_order
+                        or fields.Datetime.from_string("1970-01-01 00:00:00"),
                         line.id,
                     ),
                     reverse=True,
-                )
-
+                )[:10]
                 product.purchase_history_html = product._format_history_html(
                     purchase_lines, "Sin compras registradas."
                 )
             else:
-                product.purchase_history_html = product._empty_history_html("Sin compras registradas.")
+                product.purchase_history_html = product._empty_history_html(
+                    "Sin compras registradas."
+                )
 
             if has_sale_model:
                 sale_lines = sale_lines_model.search(
@@ -1302,14 +1365,20 @@ class Product(models.Model):
                     limit=80,
                 )
                 sale_lines = sale_lines.sorted(
-                    key=lambda line: (line.order_id.date_order or fields.Datetime.from_string("1970-01-01 00:00:00"), line.id),
+                    key=lambda line: (
+                        line.order_id.date_order
+                        or fields.Datetime.from_string("1970-01-01 00:00:00"),
+                        line.id,
+                    ),
                     reverse=True,
                 )[:10]
                 product.sale_history_html = product._format_history_html(
                     sale_lines, "Sin ventas registradas."
                 )
             else:
-                product.sale_history_html = product._empty_history_html("Sin ventas registradas.")
+                product.sale_history_html = product._empty_history_html(
+                    "Sin ventas registradas."
+                )
 
     def action_save_product_record(self):
         self.ensure_one()
@@ -1329,7 +1398,8 @@ class Product(models.Model):
             "tag": "display_notification",
             "params": {
                 "title": _("Producto guardado"),
-                "message": _("Los cambios del producto se han guardado correctamente.") + detail_suffix,
+                "message": _("Los cambios del producto se han guardado correctamente.")
+                + detail_suffix,
                 "type": "success",
                 "sticky": False,
             },
@@ -1345,7 +1415,9 @@ class Product(models.Model):
             vals = self._prepare_catalog_logistics_vals(original_vals)
             stock_sync_map.append(
                 {
-                    "stock_initial_qty": vals.get("stock_initial_qty") if "stock_initial_qty" in vals else None,
+                    "stock_initial_qty": vals.get("stock_initial_qty")
+                    if "stock_initial_qty" in vals
+                    else None,
                 }
             )
             if install_mode:
@@ -1355,11 +1427,9 @@ class Product(models.Model):
             for many2many_field in ("supplier_taxes_id", "taxes_id"):
                 if many2many_field not in vals:
                     continue
-
                 if not has_account_tax:
                     vals[many2many_field] = False
                     continue
-
                 raw_value = vals[many2many_field]
                 should_write, normalized_value = self._prepare_tax_m2m_write_value(
                     raw_value,
@@ -1374,7 +1444,6 @@ class Product(models.Model):
                 vals["supplier_partner_id"] = self._normalize_many2one_input_value(
                     vals.get("supplier_partner_id")
                 )
-
 
             if "taxes_id" not in vals:
                 sale_tax = self._default_sale_taxes()
@@ -1407,12 +1476,13 @@ class Product(models.Model):
                     raw_value = vals[many2many_field]
                     should_write, normalized_value = self._prepare_tax_m2m_write_value(
                         raw_value,
-                        "purchase" if many2many_field == "supplier_taxes_id" else "sale",
+                        "purchase"
+                        if many2many_field == "supplier_taxes_id"
+                        else "sale",
                     )
                     if should_write:
                         vals[many2many_field] = normalized_value
                     else:
-                        # Payload ambiguo/ruido del cliente web: conservar el valor actual.
                         vals.pop(many2many_field, None)
 
         if "supplier_partner_id" in vals:
@@ -1424,13 +1494,30 @@ class Product(models.Model):
             vals["imei_number"] = False
         result = super().write(vals)
         self._apply_stock_sync_from_values(vals)
-        if "piece_input" in vals or "piece_product_id" in vals or "product_mode" in vals:
+        if (
+            "piece_input" in vals
+            or "piece_product_id" in vals
+            or "product_mode" in vals
+        ):
             self._sync_pending_pieces()
-        if "piece_ids" in vals or "piece_input" in vals or "piece_product_id" in vals or "product_mode" in vals:
+        if (
+            "piece_ids" in vals
+            or "piece_input" in vals
+            or "piece_product_id" in vals
+            or "product_mode" in vals
+        ):
             self._apply_piece_total_price()
         if "serial_number_input" in vals or "has_serial_number" in vals:
             self._sync_pending_serial_numbers()
-        if any(field_name in vals for field_name in ("supplier_partner_id", "supplier_reference", "standard_price", "company_id")):
+        if any(
+            field_name in vals
+            for field_name in (
+                "supplier_partner_id",
+                "supplier_reference",
+                "standard_price",
+                "company_id",
+            )
+        ):
             self._sync_catalog_supplierinfo()
         return result
 
@@ -1448,7 +1535,8 @@ class Product(models.Model):
                 piece_vals_list.append(
                     {
                         "product_tmpl_id": product.id,
-                        "name": product.piece_product_id.display_name or product.piece_product_id.name,
+                        "name": product.piece_product_id.display_name
+                        or product.piece_product_id.name,
                         "piece_product_id": product.piece_product_id.id,
                         "price_unit": product.piece_product_id.standard_price or 0.0,
                         "sale_price_unit": product.piece_product_id.list_price or 0.0,
@@ -1458,7 +1546,9 @@ class Product(models.Model):
                 continue
             created_pieces = piece_model.create(piece_vals_list)
             created_count += len(created_pieces)
-            super(Product, product).write({"piece_input": False, "piece_product_id": False})
+            super(Product, product).write(
+                {"piece_input": False, "piece_product_id": False}
+            )
         return created_count
 
     def _apply_piece_total_price(self):
@@ -1467,9 +1557,13 @@ class Product(models.Model):
                 continue
             purchase_prices = product.piece_ids.mapped("price_unit")
             sale_prices = product.piece_ids.mapped("sale_price_unit")
-            if purchase_prices and any(price not in (False, None, 0.0) for price in purchase_prices):
+            if purchase_prices and any(
+                price not in (False, None, 0.0) for price in purchase_prices
+            ):
                 product.standard_price = product.piece_total_price
-            if sale_prices and any(price not in (False, None, 0.0) for price in sale_prices):
+            if sale_prices and any(
+                price not in (False, None, 0.0) for price in sale_prices
+            ):
                 product.list_price = product.piece_sale_total_price
 
     def _get_piece_breakdown_components(self, quantity=1.0, visited=None):
@@ -1494,11 +1588,14 @@ class Product(models.Model):
             if not component_qty:
                 continue
 
-            if linked_product and linked_product.product_mode == "pieces" and linked_product.piece_ids:
+            if (
+                linked_product
+                and linked_product.product_mode == "pieces"
+                and linked_product.piece_ids
+            ):
                 components.extend(
                     linked_product._get_piece_breakdown_components(
-                        quantity=component_qty,
-                        visited=branch_visited,
+                        quantity=component_qty, visited=branch_visited
                     )
                 )
                 continue
@@ -1528,8 +1625,11 @@ class Product(models.Model):
                 and float_compare(
                     product.stock_qty,
                     1.0,
-                    precision_rounding=product._get_positive_rounding(product.uom_id.rounding),
-                ) > 0
+                    precision_rounding=product._get_positive_rounding(
+                        product.uom_id.rounding
+                    ),
+                )
+                > 0
             ):
                 raise ValidationError(
                     _("Los productos unicos solo pueden tener una unidad en stock.")
@@ -1543,7 +1643,9 @@ class Product(models.Model):
             imei = (product.imei_number or "").strip()
             if not imei:
                 raise ValidationError(
-                    _("Debes indicar el IMEI cuando la casilla 'Tiene IMEI' esté marcada.")
+                    _(
+                        "Debes indicar el IMEI cuando la casilla 'Tiene IMEI' esté marcada."
+                    )
                 )
             normalized_imei = imei.replace(" ", "")
             if not normalized_imei.isdigit() or len(normalized_imei) != 15:
@@ -1552,11 +1654,7 @@ class Product(models.Model):
                 )
             product.imei_number = normalized_imei
 
-    @api.constrains(
-        "has_serial_number",
-        "serial_number_input",
-        "serial_number_ids",
-    )
+    @api.constrains("has_serial_number", "serial_number_input", "serial_number_ids")
     def _check_serial_number(self):
         for product in self:
             if (
@@ -1565,7 +1663,9 @@ class Product(models.Model):
                 and not product.serial_number_ids
             ):
                 raise ValidationError(
-                    _("Debes indicar el numero de serie cuando la casilla este marcada.")
+                    _(
+                        "Debes indicar el numero de serie cuando la casilla este marcada."
+                    )
                 )
 
     def _sync_pending_serial_numbers(self):
@@ -1579,13 +1679,14 @@ class Product(models.Model):
             duplicate_serials = sorted(existing_serials.intersection(serial_values))
             if duplicate_serials:
                 raise ValidationError(
-                    _(
-                        "Los siguientes numeros de serie ya existen en este producto: %s"
-                    )
+                    _("Los siguientes numeros de serie ya existen en este producto: %s")
                     % ", ".join(duplicate_serials)
                 )
             created_serials = serial_model.create(
-                [{"product_tmpl_id": product.id, "name": serial_value} for serial_value in serial_values]
+                [
+                    {"product_tmpl_id": product.id, "name": serial_value}
+                    for serial_value in serial_values
+                ]
             )
             created_count += len(created_serials)
             super(Product, product).write({"serial_number_input": False})
@@ -1593,7 +1694,9 @@ class Product(models.Model):
 
     @api.model
     def _parse_serial_numbers(self, serial_text):
-        raw_chunks = (serial_text or "").replace(";", "\n").replace(",", "\n").splitlines()
+        raw_chunks = (
+            (serial_text or "").replace(";", "\n").replace(",", "\n").splitlines()
+        )
         serial_values = []
         for chunk in raw_chunks:
             serial_value = chunk.strip()
@@ -1601,14 +1704,18 @@ class Product(models.Model):
                 continue
             if serial_value in serial_values:
                 raise ValidationError(
-                    _("No puedes guardar numeros de serie duplicados en la misma entrada.")
+                    _(
+                        "No puedes guardar numeros de serie duplicados en la misma entrada."
+                    )
                 )
             serial_values.append(serial_value)
         return serial_values
 
     @api.model
     def _parse_piece_values(self, piece_text):
-        raw_chunks = (piece_text or "").replace(";", "\n").replace(",", "\n").splitlines()
+        raw_chunks = (
+            (piece_text or "").replace(";", "\n").replace(",", "\n").splitlines()
+        )
         piece_values = []
         for chunk in raw_chunks:
             piece_value = chunk.strip()
@@ -1620,24 +1727,20 @@ class Product(models.Model):
     def _compute_price_taxes(self, base_amount, taxes, currency):
         self.ensure_one()
         base_amount = base_amount or 0.0
-        if not taxes:
-            return {"tax_amount": 0.0, "total": base_amount}
-        if not hasattr(taxes, "compute_all"):
+        if not taxes or not hasattr(taxes, "compute_all"):
             return {"tax_amount": 0.0, "total": base_amount}
         if "company_id" in taxes._fields:
             taxes = taxes.filtered(
-                lambda tax: not tax.company_id
-                or tax.company_id == (self.company_id or self.env.company)
+                lambda tax: (
+                    not tax.company_id
+                    or tax.company_id == (self.company_id or self.env.company)
+                )
             )
         if not taxes:
             return {"tax_amount": 0.0, "total": base_amount}
         variant = self.product_variant_id
         tax_res = taxes.compute_all(
-            base_amount,
-            currency=currency,
-            quantity=1.0,
-            product=variant,
-            partner=False,
+            base_amount, currency=currency, quantity=1.0, product=variant, partner=False
         )
         return {
             "tax_amount": tax_res["total_included"] - tax_res["total_excluded"],
@@ -1648,194 +1751,162 @@ class Product(models.Model):
         if not lines:
             return self._empty_history_html(empty_message)
 
-        # Ignoramos la función separada para asegurar que el diseño aplica siempre
         show_variant_info = any(
             getattr(line.product_id.product_tmpl_id, "product_variant_count", 0) > 1
             for line in lines
             if getattr(line, "product_id", False)
         )
-        items = []
+
         subtotal_total = 0.0
+        canon_total_sum = 0.0
         tax_total = 0.0
         grand_total = 0.0
         currency_label = ""
-        
+        rows_html = ""
+
         for line in lines:
-            # 1. SACAMOS LA REFERENCIA (order_ref) DEPENDIENDO SI ES COMPRA O VENTA
             if line._name == "purchase.order.line":
                 date_value = line.order_id.date_order or line.create_date
-                partner_name = line.order_id.partner_id.display_name # Corregido: antes apuntaba al contacto de la línea, no del pedido
-                quantity = line.product_qty
-                currency = line.currency_id or line.company_id.currency_id
-                order_ref = line.order_id.name # Aquí sacamos el P00041
+                partner_name = line.order_id.partner_id.display_name
+                quantity = line.product_qty or 0.0
+                order_ref = line.order_id.name
+                order_id = line.order_id.id
+                order_model = "purchase.order"
             else:
                 date_value = line.order_id.date_order or line.create_date
                 partner_name = line.order_partner_id.display_name
-                quantity = line.product_uom_qty
-                currency = line.currency_id or line.company_id.currency_id
-                order_ref = line.order_id.name # Aquí sacamos el S00041
+                quantity = line.product_uom_qty or 0.0
+                order_ref = line.order_id.name
+                order_id = line.order_id.id
+                order_model = "sale.order"
 
-            subtotal = line.price_subtotal
-            total = line.price_total
+            currency = line.currency_id or line.company_id.currency_id
+            subtotal = line.price_subtotal or 0.0
+            total = line.price_total or 0.0
             tax_amount = total - subtotal
+
+            canon_unit = (
+                getattr(line.product_id.product_tmpl_id, "canon_amount", 0.0) or 0.0
+            )
+            canon_total = canon_unit * quantity
+            final_total = total + canon_total
+
             subtotal_total += subtotal
+            canon_total_sum += canon_total
             tax_total += tax_amount
-            grand_total += total
-            
-            # 2. FECHA Y HORA COMPLETAS CON ZONA HORARIA LOCAL
+            grand_total += final_total
+
             if date_value:
                 date_local = fields.Datetime.context_timestamp(self, date_value)
-                date_label = date_local.strftime("%d/%m/%Y %H:%M:%S")
+                date_label = date_local.strftime("%d/%m/%Y %H:%M")
             else:
                 date_label = "Sin fecha"
-                
+
             partner_label = escape(partner_name or "Sin contacto")
             currency_label = escape(currency.name or "")
             order_ref_label = escape(order_ref or "")
-            
-            variant_line = (
-                f"<strong>Variante:</strong> {escape(line.product_id.display_name or line.product_id.name or 'N/A')}<br/>"
-                if show_variant_info else ""
-            )
-            
-            # 3. DIBUJAMOS LA VIÑETA INYECTANDO LA HORA Y LA REFERENCIA [P00041]
-            items.append(
-                "<li class='mb-2'>"
-                f"<strong>{escape(date_label)}</strong> - <strong>[{order_ref_label}]</strong> - {partner_label}<br/>"
-                f"{variant_line}"
-                f"{quantity:.2f} x {line.price_unit:.2f} {currency_label}<br/>"
-                f"Base: {subtotal:.2f} {currency_label} | Impuesto: {tax_amount:.2f} {currency_label} | Total: {total:.2f} {currency_label}"
-                "</li>"
+
+            order_url = f"/web#id={order_id}&model={order_model}&view_type=form"
+            order_link_html = f"<a href='{order_url}' target='_blank' class='fw-bold text-decoration-none'>[{order_ref_label}]</a>"
+
+            variant_name = (
+                f" <small class='text-muted'>({escape(line.product_id.display_name or line.product_id.name or '')})</small>"
+                if show_variant_info
+                else ""
             )
 
-        totals_html = (
-            "<div class='mb-3'>"
-            f"<strong>Base:</strong> {subtotal_total:.2f} {currency_label}"
-            f"<br/><strong>Impuestos:</strong> {tax_total:.2f} {currency_label}"
-            f"<br/><strong>Total:</strong> {grand_total:.2f} {currency_label}"
-            "</div>"
-        )
-        return f"{totals_html}<ul class='mb-0'>{''.join(items)}</ul>"
+            rows_html += f"""
+                <tr>
+                    <td>{date_label}<br/>{order_link_html}</td>
+                    <td>{partner_label}{variant_name}</td>
+                    <td class="text-end">{quantity:,.2f}</td>
+                    <td class="text-end">{line.price_unit:,.2f} {currency_label}</td>
+                    <td class="text-end">{subtotal:,.2f} {currency_label}</td>
+                    <td class="text-end">{tax_amount:,.2f} {currency_label}</td>
+                    <td class="text-end"><strong>{final_total:,.2f} {currency_label}</strong></td>
+                </tr>
+            """
 
-        
-    def _format_purchase_history_html(self, lines):
-        if not lines:
-            return self._empty_history_html("Sin compras registradas.")
-
-        lines_by_order = {}
-        sorted_order_ids = []
-        for line in lines:
-            order = line.order_id
-            if not order:
-                continue
-            if order.id not in lines_by_order:
-                lines_by_order[order.id] = []
-                sorted_order_ids.append(order.id)
-            lines_by_order[order.id].append(line)
-
-        if not sorted_order_ids:
-            return self._empty_history_html("Sin compras registradas.")
-
-        overall_base = 0.0
-        overall_canon = 0.0
-        overall_tax = 0.0
-        overall_total = 0.0
-        global_currency_label = ""
-        order_blocks = []
-
-        for order_id in sorted_order_ids:
-            order_lines = lines_by_order[order_id]
-            if not order_lines:
-                continue
-
-            order = order_lines[0].order_id
-            
-            # 1. FECHA Y HORA COMPLETAS (Ajustado a la zona horaria del usuario)
-            date_utc = order.date_order or order.create_date
-            if date_utc:
-                date_local = fields.Datetime.context_timestamp(self, date_utc)
-                date_label = date_local.strftime("%d/%m/%Y %H:%M:%S")
-            else:
-                date_label = "Sin fecha"
-                
-            # 2. REFERENCIA DEL PEDIDO (Ej: P00041)
-            order_ref = escape(order.name or "Borrador")
-
-            partner_name = escape(order.partner_id.display_name or "Sin contacto")
-
-            line_rows = []
-            order_base = 0.0
-            order_canon = 0.0
-            order_tax = 0.0
-            order_total = 0.0
-            order_currency_label = ""
-
-            sorted_order_lines = sorted(
-                order_lines,
-                key=lambda line: (line.id,),
-                reverse=False,
-            )
-
-            for line in sorted_order_lines:
-                quantity = line.product_qty or 0.0
-                unit_price = line.price_unit or 0.0
-                subtotal = line.price_subtotal or 0.0
-                total = line.price_total or 0.0
-                tax_amount = total - subtotal
-
-                canon_unit = line.product_id.product_tmpl_id.canon_amount or 0.0
-                canon_total = canon_unit * quantity
-                final_total = total + canon_total
-
-                currency = line.currency_id or line.company_id.currency_id
-                currency_label = escape(currency.name or "")
-                order_currency_label = currency_label
-                if not global_currency_label:
-                    global_currency_label = currency_label
-
-                product_name = escape(line.product_id.display_name or line.name or "Producto")
-
-                order_base += subtotal
-                order_canon += canon_total
-                order_tax += tax_amount
-                order_total += final_total
-
-                line_rows.append(
-                    "<li class='mb-2'>"
-                    f"<strong>{product_name}</strong><br/>"
-                    f"{quantity:.2f} x {unit_price:.2f} {currency_label}<br/>"
-                    f"Base: {subtotal:.2f} {currency_label} | Canon: {canon_total:.2f} {currency_label} | Impuesto: {tax_amount:.2f} {currency_label} | Total: {final_total:.2f} {currency_label}"
-                    "</li>"
-                )
-
-            overall_base += order_base
-            overall_canon += order_canon
-            overall_tax += order_tax
-            overall_total += order_total
-
-            # 3. INYECTAMOS LA REFERENCIA (order_ref) Y LA HORA EN EL ENCABEZADO DEL BLOQUE
-            order_blocks.append(
-                "<div class='mb-3'>"
-                f"<strong>{date_label}</strong> - <strong>[{order_ref}]</strong> - {partner_name}<br/>"
-                f"<ul class='mb-2'>{''.join(line_rows)}</ul>"
-                f"<strong>Total base pedido:</strong> {order_base:.2f} {order_currency_label}"
-                f"<br/><strong>Total canon pedido:</strong> {order_canon:.2f} {order_currency_label}"
-                f"<br/><strong>Total impuestos pedido:</strong> {order_tax:.2f} {order_currency_label}"
-                f"<br/><strong>Total pedido:</strong> {order_total:.2f} {order_currency_label}"
-                "</div>"
-            )
-
-        overall_totals_html = (
-            "<div class='mb-3'>"
-            f"<strong>Total base:</strong> {overall_base:.2f} {global_currency_label}"
-            f"<br/><strong>Total canon:</strong> {overall_canon:.2f} {global_currency_label}"
-            f"<br/><strong>Total impuestos:</strong> {overall_tax:.2f} {global_currency_label}"
-            f"<br/><strong>Total final:</strong> {overall_total:.2f} {global_currency_label}"
-            "</div>"
-        )
-
-        return f"{overall_totals_html}{''.join(order_blocks)}"
+        html = f"""
+        <div class="o_history_table">
+            <div class="alert alert-info" role="alert" style="padding: 10px; margin-bottom: 15px;">
+                <div class="row text-center">
+                    <div class="col-3"><strong>Base:</strong> {subtotal_total:,.2f} {currency_label}</div>
+                    <div class="col-3"><strong>Canon:</strong> {canon_total_sum:,.2f} {currency_label}</div>
+                    <div class="col-3"><strong>Imp.:</strong> {tax_total:,.2f} {currency_label}</div>
+                    <div class="col-3"><strong>Total:</strong> {grand_total:,.2f} {currency_label}</div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover" style="border: 1px solid #e9ecef; width: 100%;">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha / Ref</th>
+                            <th>Contacto</th>
+                            <th class="text-end">Cant.</th>
+                            <th class="text-end">Precio Ud.</th>
+                            <th class="text-end">Base</th>
+                            <th class="text-end">Imp.</th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows_html}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        """
+        return html
 
     @staticmethod
     def _empty_history_html(message):
-        return f"<p class='text-muted mb-0'>{escape(message)}</p>"
+        return f"<div class='text-muted p-2'>{escape(message)}</div>"
+
+    @api.depends("type", "stock_real_qty")
+    def _compute_stock_quant_html(self):
+        has_quant = self._is_model_available("stock.quant")
+        Quant = self.env["stock.quant"].sudo() if has_quant else False
+
+        for product in self:
+            if (
+                not has_quant
+                or not product.id
+                or product.type not in ("product", "consu")
+            ):
+                product.stock_quant_html = "<div class='text-muted mt-2'>Sin desglose de stock disponible.</div>"
+                continue
+
+            quants = Quant.search(
+                [
+                    ("product_id.product_tmpl_id", "=", product.id),
+                    ("location_id.usage", "=", "internal"),
+                ]
+            )
+
+            loc_data = {}
+            for q in quants:
+                loc_name = q.location_id.display_name
+                loc_data[loc_name] = loc_data.get(loc_name, 0.0) + q.quantity
+
+            loc_data = {k: v for k, v in loc_data.items() if v > 0}
+
+            if not loc_data:
+                product.stock_quant_html = "<div class='text-muted mt-2'><small>No hay stock registrado en ubicaciones.</small></div>"
+                continue
+
+            rows = ""
+            for loc_name, qty in sorted(loc_data.items()):
+                rows += f"<tr><td class='align-middle text-muted'><small>{escape(loc_name)}</small></td><td class='text-end align-middle'><strong>{qty:,.2f}</strong></td></tr>"
+
+            html = f"""
+            <div class="mt-3">
+                <strong class="d-block mb-1 text-muted" style="font-size: 0.9em;">Desglose por ubicaciones:</strong>
+                <table class="table table-sm table-borderless mb-0" style="background-color: #f8f9fa; border-radius: 5px; overflow: hidden;">
+                    <tbody>
+                        {rows}
+                    </tbody>
+                </table>
+            </div>
+            """
+            product.stock_quant_html = html
