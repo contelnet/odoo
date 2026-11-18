@@ -94,3 +94,4 @@ addons/crm/wizard/__pycache__/outlook_message_wizard.cpython-313.pyc
 .venv/
 venv/
 *.dump
+share_lan.sh

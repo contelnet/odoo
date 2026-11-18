@@ -25,13 +25,6 @@ class PurchaseOrder(models.Model):
         help="Si está marcado, el pedido se confirmará automáticamente al guardar con líneas."
     )
 
-    def write(self, vals):
-        res = super().write(vals)
-        for order in self:
-            if order.is_express_order and order.state in ['draft', 'sent'] and order.order_line:
-                order.button_confirm()
-        return res
-
     # 🔥 PÉGALO EXACTAMENTE AQUÍ, al final de la clase PurchaseOrder 🔥
     def action_create_invoice(self):
         res = super(PurchaseOrder, self).action_create_invoice()

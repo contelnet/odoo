@@ -39,8 +39,6 @@ class Partner(models.Model):
                     pm = PaymentMethod.create({'name': code.replace('_', ' ').title(), 'code': code})
                 partner.billing_payment_method_id = pm.id
         return True
-    _name = 'res.partner'
-    _inherit = 'res.partner'
 
     def init(self):
         """Autocura de esquema para evitar caídas si faltan columnas nuevas en servidor."""
