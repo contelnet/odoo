@@ -2,8 +2,11 @@ FROM odoo:18.0
 
 USER root
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
+RUN for f in /etc/apt/sources.list /etc/apt/sources.list.d/*; do \
+        [ -f "$f" ] && sed -i 's|http://archive.ubuntu.com/ubuntu|http://azure.archive.ubuntu.com/ubuntu|g' "$f"; \
+    done \
+    && apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 update \
+    && apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 install -y --no-install-recommends --fix-missing \
         python3-docx \
         fontconfig \
         fonts-dejavu-core \
